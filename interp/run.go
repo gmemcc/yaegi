@@ -3549,7 +3549,7 @@ func convertLiteralValue(n *node, t reflect.Type) {
 	case n.rval.IsValid():
 		// Convert constant value to target type.
 		convertConstantValue(n)
-		n.rval = n.rval.Convert(t)
+		n.rval, _ = trycast(n.rval, t)
 	default:
 		// Create a zero value of target type.
 		n.rval = reflect.New(t).Elem()
