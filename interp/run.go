@@ -1480,7 +1480,22 @@ func callBin(n *node) {
 	}
 
 	// Determine if we should use `Call` or `CallSlice` on the function Value.
-	callFn := func(v reflect.Value, in []reflect.Value) []reflect.Value { return v.Call(in) }
+	callFn := func(v reflect.Value, in []reflect.Value) []reflect.Value {
+		vType := v.Type()
+		vNumIn := vType.NumIn()
+		for i := 0; i < vNumIn; i++ {
+			inTypeExpected := vType.In(i)
+			inVal := in[i]
+			inType := inVal.Type()
+			if inTypeExpected != inType {
+				casted, err := trycast(inVal, inTypeExpected)
+				if err == nil {
+					in[i] = casted
+				}
+			}
+		}
+		return v.Call(in)
+	}
 	if n.action == aCallSlice {
 		callFn = func(v reflect.Value, in []reflect.Value) []reflect.Value { return v.CallSlice(in) }
 	}

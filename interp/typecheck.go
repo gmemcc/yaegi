@@ -54,7 +54,7 @@ func (check typecheck) assignment(n *node, typ *itype, context string) error {
 		return nil
 	}
 
-	if !n.typ.assignableTo(typ) && typ.str != "*unsafe2.dummy" {
+	if !maycast(n.typ, typ) && typ.str != "*unsafe2.dummy" {
 		if context == "" {
 			return n.cfgErrorf("cannot use type %s as type %s", n.typ.id(), typ.id())
 		}
@@ -1142,32 +1142,26 @@ func (check typecheck) convertConst(v reflect.Value, t reflect.Type) (reflect.Va
 		return v, nil
 	}
 
-	kind := t.Kind()
+	kind := c.Kind()
 	switch kind {
-	case reflect.Bool:
+	case constant.Bool:
 		v = reflect.ValueOf(constant.BoolVal(c))
-	case reflect.String:
+		return trycast(v, t)
+	case constant.String:
 		v = reflect.ValueOf(constant.StringVal(c))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, _ := constant.Int64Val(constant.ToInt(c))
-		v = reflect.ValueOf(i).Convert(t)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		i, _ := constant.Uint64Val(constant.ToInt(c))
-		v = reflect.ValueOf(i).Convert(t)
-	case reflect.Float32:
-		f, _ := constant.Float32Val(constant.ToFloat(c))
-		v = reflect.ValueOf(f)
-	case reflect.Float64:
-		f, _ := constant.Float64Val(constant.ToFloat(c))
-		v = reflect.ValueOf(f)
-	case reflect.Complex64:
+		return trycast(v, t)
+	case constant.Int:
+		val, _ := constant.Int64Val(c)
+		v = reflect.ValueOf(val)
+		return trycast(v, t)
+	case constant.Float:
+		val, _ := constant.Float64Val(c)
+		v = reflect.ValueOf(val)
+		return trycast(v, t)
+	case constant.Complex:
 		r, _ := constant.Float32Val(constant.Real(c))
 		i, _ := constant.Float32Val(constant.Imag(c))
-		v = reflect.ValueOf(complex(r, i)).Convert(t)
-	case reflect.Complex128:
-		r, _ := constant.Float64Val(constant.Real(c))
-		i, _ := constant.Float64Val(constant.Imag(c))
-		v = reflect.ValueOf(complex(r, i)).Convert(t)
+		return trycast(reflect.ValueOf(complex(r, i)), t)
 	default:
 		return v, errCantConvert
 	}
@@ -1191,38 +1185,9 @@ var bitlen = [...]int{
 func representableConst(c constant.Value, t reflect.Type) bool {
 	switch {
 	case isInt(t):
-		x := constant.ToInt(c)
-		if x.Kind() != constant.Int {
-			return false
-		}
-		switch t.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			if _, ok := constant.Int64Val(x); !ok {
-				return false
-			}
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			if _, ok := constant.Uint64Val(x); !ok {
-				return false
-			}
-		default:
-			return false
-		}
-		return constant.BitLen(x) <= bitlen[t.Kind()]
+		return true
 	case isFloat(t):
-		x := constant.ToFloat(c)
-		if x.Kind() != constant.Float {
-			return false
-		}
-		switch t.Kind() {
-		case reflect.Float32:
-			f, _ := constant.Float32Val(x)
-			return !math.IsInf(float64(f), 0)
-		case reflect.Float64:
-			f, _ := constant.Float64Val(x)
-			return !math.IsInf(f, 0)
-		default:
-			return false
-		}
+		return true
 	case isComplex(t):
 		x := constant.ToComplex(c)
 		if x.Kind() != constant.Complex {
@@ -1241,9 +1206,9 @@ func representableConst(c constant.Value, t reflect.Type) bool {
 			return false
 		}
 	case isString(t):
-		return c.Kind() == constant.String
+		return true
 	case isBoolean(t):
-		return c.Kind() == constant.Bool
+		return true
 	default:
 		return false
 	}
