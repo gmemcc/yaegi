@@ -695,7 +695,9 @@ func assign(n *node) {
 			}
 		default:
 			n.exec = func(f *frame) bltn {
-				d(f).Set(s(f))
+				vleft := d(f)
+				vright := s(f)
+				castAndSet(vleft, vright)
 				return next
 			}
 		}
@@ -1639,7 +1641,7 @@ func callBin(n *node) {
 				out := callFn(value(f), in)
 				for i, v := range rvalues {
 					if v != nil {
-						v(f).Set(out[i])
+						castAndSet(v(f), out[i])
 					}
 				}
 				return tnext

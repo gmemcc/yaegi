@@ -198,3 +198,18 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 		return val, nil
 	}
 }
+
+func castAndSet(vleft reflect.Value, vright reflect.Value) {
+	tleft := vleft.Type()
+	tright := vright.Type()
+	if tright.AssignableTo(tleft) {
+		vleft.Set(vright)
+	} else {
+		vright, err := trycast(vright, tleft)
+		if err == nil {
+			vleft.Set(vright)
+		} else {
+			panic(fmt.Sprintf("cat not convert %#v to type %s", vright.Interface(), tleft))
+		}
+	}
+}
