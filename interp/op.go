@@ -2733,7 +2733,8 @@ func equal(n *node) {
 			n.exec = func(f *frame) bltn {
 				i0 := v0(f).Interface()
 				i1 := v1(f).Interface()
-				dest(f).SetBool(i0 == i1)
+				x := i0 == i1
+				dest(f).Set(reflect.ValueOf(x))
 				return tnext
 			}
 		}
