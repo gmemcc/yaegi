@@ -815,6 +815,9 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			default:
 				n.typ = t.val
 			}
+			if n.typ == nil {
+				n.typ = t
+			}
 			n.findex = sc.add(n.typ)
 			typ := t.TypeOf()
 			if typ.Kind() == reflect.Map {
@@ -823,6 +826,7 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				break
 			}
 
+			checkIndex := true
 			l := -1
 			switch k := typ.Kind(); k {
 			case reflect.Array:
@@ -837,12 +841,16 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				} else {
 					err = n.cfgErrorf("type %v does not support indexing", typ)
 				}
+			case reflect.Interface:
+				n.gen = getIndexGeneric
+				checkIndex = false
 			default:
 				err = n.cfgErrorf("type is not an array, slice, string or map: %v", t.id())
 			}
 
-			err = check.index(n.child[1], l)
-
+			if checkIndex {
+				err = check.index(n.child[1], l)
+			}
 		case blockStmt:
 			wireChild(n)
 			if len(n.child) > 0 {

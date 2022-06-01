@@ -5,6 +5,7 @@ package interp
 import (
 	"errors"
 	"fmt"
+	"github.com/spf13/cast"
 	"go/constant"
 	"reflect"
 	"regexp"
@@ -1780,6 +1781,39 @@ func getIndexArray(n *node) {
 				return tnext
 			}
 		}
+	}
+}
+
+func getIndexGeneric(n *node) {
+	dest := genValue(n)
+	tnext := getExec(n.tnext)
+	value0 := genValue(n.child[0])
+	value1 := genValue(n.child[1])
+	n.exec = func(f *frame) bltn {
+		value := value0(f)
+		if value.Kind() == reflect.Interface {
+			value = value.Elem()
+		}
+		switch value.Kind() {
+		case reflect.Map:
+			k := value1(f)
+			v := value.MapIndex(k)
+			if v.IsValid() {
+				nvalue := dest(f)
+				cv, err := trycast(v, nvalue.Type())
+				if err != nil {
+					panic(err)
+				}
+				nvalue.Set(cv)
+			}
+		case reflect.Slice, reflect.Array, reflect.String:
+			i := value1(f)
+			v := value.Index(cast.ToInt(i.Interface()))
+			if v.IsValid() {
+				dest(f).Set(v)
+			}
+		}
+		return tnext
 	}
 }
 
