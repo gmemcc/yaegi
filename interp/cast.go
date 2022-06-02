@@ -22,6 +22,15 @@ func maycast(typ *itype, expected *itype) bool {
 }
 
 func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
+	valt := val.Type()
+	if valt == expected {
+		return val, nil
+	}
+	if valt.Kind() == expected.Kind() && valt.Kind() != reflect.Struct &&
+		(valt.PkgPath() != expected.PkgPath() || valt.Name() != expected.Name()) {
+		// type def from existing type
+		return val.Convert(expected), nil
+	}
 	value := val.Interface()
 	switch expected.Kind() {
 	case reflect.Bool:
@@ -153,7 +162,7 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			return val, errors.New(fmt.Sprintf(""))
 		}
 	case reflect.Map:
-		if val.Type().Kind() != reflect.Map {
+		if valt.Kind() != reflect.Map {
 			return val, nil
 		}
 		ktype := expected.Key()
@@ -177,7 +186,7 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 		}
 		return castedValue, nil
 	case reflect.Slice:
-		if val.Type().Kind() != reflect.Slice {
+		if valt.Kind() != reflect.Slice {
 			return val, nil
 		}
 		vtype := expected.Elem()
