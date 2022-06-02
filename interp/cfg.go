@@ -1547,10 +1547,6 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				}
 				// TODO(mpl): move any of that code to typecheck?
 				c.typ.node = c
-				if !c.typ.assignableTo(typ) {
-					err = c.cfgErrorf("cannot use %v (type %v) as type %v in return argument", c.ident, c.typ.cat, typ.cat)
-					return
-				}
 				if c.typ.cat == nilT {
 					// nil: Set node value to zero of return type
 					if typ.cat == funcT {

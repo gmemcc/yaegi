@@ -166,7 +166,11 @@ func genValueAs(n *node, t reflect.Type) func(*frame) reflect.Value {
 				return reflect.New(t).Elem()
 			}
 		}
-		return v.Convert(t)
+		vc, err := trycast(v, t)
+		if err != nil {
+			panic(err)
+		}
+		return vc
 	}
 }
 
