@@ -116,16 +116,23 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			return val, err
 		}
 	case reflect.String:
-		casted, err := cast.ToStringE(value)
-		if err == nil {
+		switch reflect.ValueOf(value).Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			casted := fmt.Sprintf("%d", value)
 			return reflect.ValueOf(casted), nil
-		} else {
-			return val, err
+		default:
+			casted, err := cast.ToStringE(value)
+			if err == nil {
+				return reflect.ValueOf(casted), nil
+			} else {
+				return val, err
+			}
 		}
 	case reflect.Struct:
+		castedPtrValue := reflect.New(expected)
 		indirect := reflect.Indirect(val)
 		kind := indirect.Kind()
-		castedPtrValue := reflect.New(expected)
 		switch kind {
 		case reflect.String:
 			// assume value is in json format
