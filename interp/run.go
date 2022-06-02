@@ -1490,7 +1490,11 @@ func callBin(n *node) {
 			inTypeExpected := vType.In(i)
 			inVal := in[i]
 			inType := inVal.Type()
-			if inTypeExpected != inType {
+			if inType != inTypeExpected {
+				if i == vNumIn-1 && inTypeExpected.Kind() == reflect.Slice && inType == inTypeExpected.Elem() {
+					// variadic argument, no cast
+					break
+				}
 				casted, err := trycast(inVal, inTypeExpected)
 				if err == nil {
 					in[i] = casted
