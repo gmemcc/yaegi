@@ -809,6 +809,8 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			case valueT:
 				if t.rtype.Kind() == reflect.String {
 					n.typ = sc.getType("byte")
+				} else if t.rtype.Kind() == reflect.Interface {
+					n.typ = t
 				} else {
 					n.typ = valueTOf(t.rtype.Elem())
 				}
@@ -1705,8 +1707,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 							n.recv = &receiver{node: n.child[0]}
 							n.action = aGetMethod
 							break
+						} else {
+							n.gen = getIndexGeneric
+							n.typ = valueTOf(reflect.TypeOf((*interface{})(nil)).Elem())
 						}
-						err = n.cfgErrorf("undefined field or method: %s", n.child[1].ident)
 					}
 				} else if n.typ.cat == ptrT && (n.typ.val.cat == valueT || n.typ.val.cat == errorT) {
 					// Handle pointer on object defined in runtime
@@ -1760,7 +1764,8 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					n.val = append([]int{m.Index}, lind...)
 					n.typ = valueTOf(m.Type, isBinMethod(), withRecv(n.child[0].typ))
 				} else {
-					err = n.cfgErrorf("undefined selector: %s", n.child[1].ident)
+					n.gen = getIndexGeneric
+					n.typ = valueTOf(reflect.TypeOf((*interface{})(nil)).Elem())
 				}
 			}
 			if err == nil && n.findex != -1 {

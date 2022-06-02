@@ -1788,7 +1788,13 @@ func getIndexGeneric(n *node) {
 	dest := genValue(n)
 	tnext := getExec(n.tnext)
 	value0 := genValue(n.child[0])
-	value1 := genValue(n.child[1])
+	var value1 func(*frame) reflect.Value
+	if n.child[1].kind == identExpr {
+		name := n.child[1].ident
+		value1 = func(f *frame) reflect.Value { return reflect.ValueOf(name) }
+	} else {
+		value1 = genValue(n.child[1])
+	}
 	n.exec = func(f *frame) bltn {
 		value := value0(f)
 		if value.Kind() == reflect.Interface {
