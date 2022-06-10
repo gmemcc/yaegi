@@ -158,6 +158,8 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			} else {
 				return val, err
 			}
+		case reflect.Interface:
+			return indirect.Elem().Convert(expected), nil
 		default:
 			return val, errors.New(fmt.Sprintf(""))
 		}
