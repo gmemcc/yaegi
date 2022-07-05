@@ -1488,7 +1488,12 @@ func callBin(n *node) {
 		vNumIn := vType.NumIn()
 		for i := 0; i < vNumIn; i++ {
 			inTypeExpected := vType.In(i)
-			inVal := in[i]
+			var inVal reflect.Value
+			if vType.IsVariadic() && i == vNumIn-1 && len(in) == i {
+				inVal = reflect.New(inTypeExpected).Elem()
+			} else {
+				inVal = in[i]
+			}
 			inType := inVal.Type()
 			if inType != inTypeExpected {
 				if i == vNumIn-1 && inTypeExpected.Kind() == reflect.Slice && inType == inTypeExpected.Elem() {
