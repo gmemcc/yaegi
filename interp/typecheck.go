@@ -54,7 +54,7 @@ func (check typecheck) assignment(n *node, typ *itype, context string) error {
 		return nil
 	}
 
-	if !maycast(n.typ, typ) && typ.str != "*unsafe2.dummy" {
+	if !canIconv(n.typ, typ) && typ.str != "*unsafe2.dummy" {
 		if context == "" {
 			return n.cfgErrorf("cannot use type %s as type %s", n.typ.id(), typ.id())
 		}
@@ -130,7 +130,7 @@ var unaryOpPredicates = opPredicates{
 	aPos:    isNumber,
 	aNeg:    isNumber,
 	aBitNot: isInt,
-	aNot:    isBoolean,
+	aNot:    canRconvBool,
 }
 
 // unaryExpr type checks a unary expression.
@@ -186,7 +186,7 @@ func (check typecheck) shift(n *node) error {
 func (check typecheck) comparison(n *node) error {
 	c0, c1 := n.child[0], n.child[1]
 
-	if !c0.typ.assignableTo(c1.typ) && !c1.typ.assignableTo(c0.typ) {
+	if !c0.typ.assignableTo(c1.typ) && !c1.typ.assignableTo(c0.typ) && !((isNumber(c0.typ.rtype) || isString(c0.typ.rtype)) && (isNumber(c1.typ.rtype) || isString(c1.typ.rtype))) {
 		return n.cfgErrorf("invalid operation: mismatched types %s and %s", c0.typ.id(), c1.typ.id())
 	}
 
@@ -202,7 +202,9 @@ func (check typecheck) comparison(n *node) error {
 		if typ.isNil() {
 			typ = c1.typ
 		}
-		return n.cfgErrorf("invalid operation: operator %v not defined on %s", n.action, typ.id())
+		if typ.cat != interfaceT {
+			return n.cfgErrorf("invalid operation: operator %v not defined on %s", n.action, typ.id())
+		}
 	}
 	return nil
 }
@@ -245,11 +247,6 @@ func (check typecheck) binaryExpr(n *node) error {
 		if n.typ == nil {
 			break
 		}
-		// Catch mixing string and number for "+" operator use.
-		k, k0, k1 := isNumber(n.typ.TypeOf()), isNumber(c0.typ.TypeOf()), isNumber(c1.typ.TypeOf())
-		if k != k0 || k != k1 {
-			return n.cfgErrorf("cannot use type %s as type %s in assignment", c0.typ.id(), n.typ.id())
-		}
 	case aRem:
 		if zeroConst(c1) {
 			return n.cfgErrorf("invalid operation: division by zero")
@@ -271,17 +268,11 @@ func (check typecheck) binaryExpr(n *node) error {
 		return check.comparison(n)
 	}
 
-	if !c0.typ.equals(c1.typ) {
-		return n.cfgErrorf("invalid operation: mismatched types %s and %s", c0.typ.id(), c1.typ.id())
-	}
-
-	t0 := c0.typ.TypeOf()
-
-	return check.op(binaryOpPredicates, a, n, c0, t0)
+	return nil
 }
 
 func zeroConst(n *node) bool {
-	return n.typ.untyped && constant.Sign(n.rval.Interface().(constant.Value)) == 0
+	return n.typ.untyped && constant.Sign(rconvConstNumber(n.rval.Interface().(constant.Value))) == 0
 }
 
 func (check typecheck) index(n *node, max int) error {
@@ -1146,22 +1137,22 @@ func (check typecheck) convertConst(v reflect.Value, t reflect.Type) (reflect.Va
 	switch kind {
 	case constant.Bool:
 		v = reflect.ValueOf(constant.BoolVal(c))
-		return trycast(v, t)
+		return rconv(v, t)
 	case constant.String:
 		v = reflect.ValueOf(constant.StringVal(c))
-		return trycast(v, t)
+		return rconv(v, t)
 	case constant.Int:
 		val, _ := constant.Int64Val(c)
 		v = reflect.ValueOf(val)
-		return trycast(v, t)
+		return rconv(v, t)
 	case constant.Float:
 		val, _ := constant.Float64Val(c)
 		v = reflect.ValueOf(val)
-		return trycast(v, t)
+		return rconv(v, t)
 	case constant.Complex:
 		r, _ := constant.Float32Val(constant.Real(c))
 		i, _ := constant.Float32Val(constant.Imag(c))
-		return trycast(reflect.ValueOf(complex(r, i)), t)
+		return rconv(reflect.ValueOf(complex(r, i)), t)
 	default:
 		return v, errCantConvert
 	}

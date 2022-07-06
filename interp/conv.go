@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/spf13/cast"
+	"go/constant"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
-func maycast(typ *itype, expected *itype) bool {
+func canIconv(typ *itype, expected *itype) bool {
 	if typ.assignableTo(expected) {
 		return true
 	}
@@ -17,11 +20,20 @@ func maycast(typ *itype, expected *itype) bool {
 		return true
 	}
 	ertype := expected.rtype
-	_, err := trycast(reflect.New(typ.rtype).Elem(), ertype)
+	_, err := rconv(reflect.New(typ.rtype).Elem(), ertype)
 	return err == nil
 }
 
-func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
+func canIconvBool(t *itype) bool {
+	typ := t.TypeOf()
+	return typ.Kind() == reflect.Bool || isNumber(typ) || isString(typ) || isInterface(t)
+}
+
+func canRconvBool(t reflect.Type) bool {
+	return t.Kind() == reflect.Bool || t.Kind() == reflect.Interface || isNumber(t) || isString(t)
+}
+
+func rconv(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 	valt := val.Type()
 	if valt == expected {
 		return val, nil
@@ -176,11 +188,11 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			v := val.MapIndex(k)
 			var kcasted, vcasted reflect.Value
 			var err error
-			kcasted, err = trycast(k, ktype)
+			kcasted, err = rconv(k, ktype)
 			if err != nil {
 				return val, err
 			}
-			vcasted, err = trycast(v, vtype)
+			vcasted, err = rconv(v, vtype)
 			if err != nil {
 				return val, err
 			}
@@ -194,7 +206,7 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 		vtype := expected.Elem()
 		castedValue := reflect.MakeSlice(expected, val.Len(), val.Cap())
 		for i := 0; i < val.Len(); i++ {
-			vcasted, err := trycast(val.Index(i), vtype)
+			vcasted, err := rconv(val.Index(i), vtype)
 			if err == nil {
 				castedValue.Index(i).Set(vcasted)
 			} else {
@@ -203,7 +215,7 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 		}
 		return castedValue, nil
 	case reflect.Ptr:
-		castedValue, err := trycast(val, expected.Elem())
+		castedValue, err := rconv(val, expected.Elem())
 		casted := castedValue.Interface()
 		if err == nil {
 			castedPtrVal := reflect.New(reflect.TypeOf(casted))
@@ -217,17 +229,140 @@ func trycast(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 	}
 }
 
-func castAndSet(vleft reflect.Value, vright reflect.Value) {
-	tleft := vleft.Type()
-	tright := vright.Type()
+func rconvAndSet(dvalue reflect.Value, svalue reflect.Value) error {
+	tleft := dvalue.Type()
+	tright := svalue.Type()
 	if tright.AssignableTo(tleft) {
-		vleft.Set(vright)
+		dvalue.Set(svalue)
 	} else {
-		vright, err := trycast(vright, tleft)
+		vright, err := rconv(svalue, tleft)
 		if err == nil {
-			vleft.Set(vright)
+			dvalue.Set(vright)
 		} else {
-			panic(fmt.Sprintf("cat not convert %#v to type %s", vright.Interface(), tleft))
+			return err
 		}
 	}
+	return nil
+}
+
+func rconvNumber(value reflect.Value) reflect.Value {
+	if !value.IsValid() || value.IsZero() {
+		return reflect.ValueOf(0)
+	}
+	if value.Kind() == reflect.Interface || value.Kind() == reflect.Ptr {
+		return rconvNumber(value.Elem())
+	}
+	if isString(value.Type()) {
+		val := value.Interface().(string)
+		var num interface{}
+		var err error
+		if strings.Index(val, ".") > -1 {
+			num, err = strconv.ParseFloat(val, 64)
+			if err != nil {
+				return value
+			} else {
+				return reflect.ValueOf(num)
+			}
+		} else {
+			num, err = strconv.ParseUint(val, 0, 64)
+			num, err = strconv.ParseInt(val, 0, 64)
+			if err != nil {
+				return value
+			} else {
+				return reflect.ValueOf(num)
+			}
+		}
+	} else {
+		return value
+	}
+}
+
+func rconvConst(val constant.Value, kind constant.Kind) constant.Value {
+	v := constToInterface(val)
+	switch kind {
+	case constant.Bool:
+		return constant.MakeBool(cast.ToBool(v))
+	case constant.String:
+		return constant.MakeString(cast.ToString(v))
+	case constant.Int:
+		return constant.MakeInt64(cast.ToInt64(v))
+	case constant.Float:
+		return constant.MakeFloat64(cast.ToFloat64(v))
+	}
+	return nil
+}
+
+func constToInterface(value constant.Value) interface{} {
+	switch value.Kind() {
+	case constant.Bool:
+		return constant.BoolVal(value)
+	case constant.String:
+		return constant.StringVal(value)
+	case constant.Int:
+		v, _ := constant.Int64Val(value)
+		return v
+	case constant.Float:
+		v, _ := constant.Float64Val(value)
+		return v
+	default:
+		return nil
+	}
+}
+
+func rconvConstNumber(val constant.Value) (c constant.Value) {
+	v := constToInterface(val)
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Bool:
+		c = constant.MakeInt64(cast.ToInt64(v))
+	case reflect.String:
+		vstr := v.(string)
+		if strings.Index(vstr, ".") > -1 {
+			var num float64
+			var err error
+			num, err = cast.ToFloat64E(vstr)
+			if err != nil {
+				panic(err)
+			}
+			c = constant.MakeFloat64(num)
+		} else {
+			var num int64
+			var err error
+			num, err = cast.ToInt64E(vstr)
+			if err != nil {
+				panic(err)
+			}
+			c = constant.MakeInt64(num)
+		}
+	case reflect.Int64:
+		c = constant.MakeInt64(cast.ToInt64(v))
+	case reflect.Float64:
+		c = constant.MakeFloat64(cast.ToFloat64(v))
+	}
+	return
+}
+
+func rconvConstInt(value constant.Value) constant.Value {
+	v := rconvConstNumber(value)
+	if v.Kind() == constant.Float {
+		return constant.MakeInt64(cast.ToInt64(constToInterface(v)))
+	}
+	return v
+}
+
+func rconvConstBool(value constant.Value) constant.Value {
+	return constant.MakeBool(cast.ToBool(constToInterface(value)))
+}
+
+func rconvToString(val reflect.Value) string {
+	if !val.IsValid() {
+		return ""
+	}
+	return cast.ToString(val.Interface())
+}
+
+func rconvToBool(val reflect.Value) bool {
+	if !val.IsValid() {
+		return false
+	}
+	return cast.ToBool(val.Interface())
 }

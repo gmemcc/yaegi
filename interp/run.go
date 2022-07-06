@@ -12,6 +12,24 @@ import (
 	"strings"
 )
 
+// A runError represents an error during runtime.
+type runError struct {
+	*node
+	error
+}
+
+func (c *runError) Error() string { return c.error.Error() }
+
+func (n *node) runErrorf(format string, a ...interface{}) *runError {
+	pos := n.interp.fset.Position(n.pos)
+	posString := n.interp.fset.Position(n.pos).String()
+	if pos.Filename == DefaultSourceName {
+		posString = strings.TrimPrefix(posString, DefaultSourceName+":")
+	}
+	a = append([]interface{}{posString}, a...)
+	return &runError{n, fmt.Errorf("%s: "+format, a...)}
+}
+
 // bltn type defines functions which run at CFG execution.
 type bltn func(f *frame) bltn
 
@@ -568,7 +586,7 @@ func convert(n *node) {
 		n.exec = func(f *frame) bltn {
 			n, ok := value(f).Interface().(*node)
 			if !ok || !n.typ.convertibleTo(c.typ) {
-				panic("cannot convert")
+				panic(n.runErrorf("cannot convert %s to %s", n.typ.TypeOf(), c.typ.TypeOf()))
 			}
 			n1 := *n
 			n1.typ = c.typ
@@ -698,7 +716,10 @@ func assign(n *node) {
 			n.exec = func(f *frame) bltn {
 				vleft := d(f)
 				vright := s(f)
-				castAndSet(vleft, vright)
+				err := rconvAndSet(vleft, vright)
+				if err != nil {
+					panic(n.runErrorf("failed to convert %s to %s", vright.Type(), vleft.Type()))
+				}
 				return next
 			}
 		}
@@ -776,16 +797,32 @@ func not(n *node) {
 	if n.fnext != nil {
 		fnext := getExec(n.fnext)
 		n.exec = func(f *frame) bltn {
-			if !value(f).Bool() {
-				dest(f).SetBool(true)
+			val := cast.ToBool(value(f).Interface())
+			dval := dest(f)
+			dtype := dval.Type()
+			rval := reflect.ValueOf(!val)
+			v, e := rconv(rval, dtype)
+			if e != nil {
+				panic(n.runErrorf("failed to convert %s to %s", rval.Type(), dtype))
+			}
+			if !val {
+				dval.Set(v)
 				return tnext
 			}
-			dest(f).SetBool(false)
+			dval.Set(v)
 			return fnext
 		}
 	} else {
 		n.exec = func(f *frame) bltn {
-			dest(f).SetBool(!value(f).Bool())
+			val := !cast.ToBool(value(f).Interface())
+			dval := dest(f)
+			rval := reflect.ValueOf(val)
+			dtype := dval.Type()
+			v, e := rconv(rval, dtype)
+			if e != nil {
+				panic(n.runErrorf("failed to convert %s to %s", rval.Type(), dtype))
+			}
+			dval.Set(v)
 			return tnext
 		}
 	}
@@ -1500,10 +1537,11 @@ func callBin(n *node) {
 					// variadic argument, no cast
 					break
 				}
-				casted, err := trycast(inVal, inTypeExpected)
-				if err == nil {
-					in[i] = casted
+				casted, err := rconv(inVal, inTypeExpected)
+				if err != nil {
+					panic(n.runErrorf("failed to convert %s to %s", inType, inTypeExpected))
 				}
+				in[i] = casted
 			}
 		}
 		return v.Call(in)
@@ -1651,7 +1689,12 @@ func callBin(n *node) {
 				out := callFn(value(f), in)
 				for i, v := range rvalues {
 					if v != nil {
-						castAndSet(v(f), out[i])
+						rr := v(f)
+						ro := out[i]
+						err := rconvAndSet(rr, ro)
+						if err != nil {
+							panic(n.runErrorf("failed to convert %s to %s", ro.Type(), rr.Type()))
+						}
 					}
 				}
 				return tnext
@@ -1815,9 +1858,10 @@ func getIndexGeneric(n *node) {
 			v := value.MapIndex(k)
 			if v.IsValid() {
 				nvalue := dest(f)
-				cv, err := trycast(v, nvalue.Type())
+				ntype := nvalue.Type()
+				cv, err := rconv(v, ntype)
 				if err != nil {
-					panic(err)
+					panic(n.runErrorf("failed to convert %s to %s", v.Type(), ntype))
 				}
 				nvalue.Set(cv)
 			}
@@ -2316,11 +2360,11 @@ func land(n *node) {
 	if n.fnext != nil {
 		fnext := getExec(n.fnext)
 		n.exec = func(f *frame) bltn {
-			if value0(f).Bool() && value1(f).Bool() {
-				dest(f).SetBool(true)
+			if rconvToBool(value0(f)) && rconvToBool(value1(f)) {
+				rconvAndSet(dest(f), reflect.ValueOf(true))
 				return tnext
 			}
-			dest(f).SetBool(false)
+			rconvAndSet(dest(f), reflect.ValueOf(false))
 			return fnext
 		}
 		return
@@ -2349,11 +2393,11 @@ func lor(n *node) {
 	if n.fnext != nil {
 		fnext := getExec(n.fnext)
 		n.exec = func(f *frame) bltn {
-			if value0(f).Bool() || value1(f).Bool() {
-				dest(f).SetBool(true)
+			if rconvToBool(value0(f)) || rconvToBool(value1(f)) {
+				rconvAndSet(dest(f), reflect.ValueOf(true))
 				return tnext
 			}
-			dest(f).SetBool(false)
+			rconvAndSet(dest(f), reflect.ValueOf(false))
 			return fnext
 		}
 		return
@@ -2385,7 +2429,15 @@ func branch(n *node) {
 	value := genValue(n)
 
 	n.exec = func(f *frame) bltn {
-		if value(f).Bool() {
+		rval := value(f)
+		rtype := rval.Type()
+		btype := reflect.ValueOf(false).Type()
+		var err error
+		rval, err = rconv(rval, btype)
+		if err != nil {
+			panic(n.runErrorf("failed to convert %s to %s", rtype, btype))
+		}
+		if rval.Bool() {
 			return tnext
 		}
 		return fnext
@@ -3598,7 +3650,11 @@ func convertLiteralValue(n *node, t reflect.Type) {
 	case n.rval.IsValid():
 		// Convert constant value to target type.
 		convertConstantValue(n)
-		n.rval, _ = trycast(n.rval, t)
+		var err error
+		n.rval, err = rconv(n.rval, t)
+		if err != nil {
+			panic(n.runErrorf("failed to convert %s to %s", n.rval.Type(), t))
+		}
 	default:
 		// Create a zero value of target type.
 		n.rval = reflect.New(t).Elem()
@@ -3636,7 +3692,13 @@ func convertConstantValue(n *node) {
 		v = reflect.ValueOf(complex(r, i))
 	}
 
-	n.rval = v.Convert(n.typ.TypeOf())
+	var err error
+	ntype := n.typ.TypeOf()
+	v, err = rconv(v, ntype)
+	if err != nil {
+		panic(n.runErrorf("failed to convert %s to %s", v.Type(), ntype))
+	}
+	n.rval = v
 }
 
 // Write to a channel.

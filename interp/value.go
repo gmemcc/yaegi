@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"github.com/spf13/cast"
 	"go/constant"
 	"reflect"
 )
@@ -166,9 +167,9 @@ func genValueAs(n *node, t reflect.Type) func(*frame) reflect.Value {
 				return reflect.New(t).Elem()
 			}
 		}
-		vc, err := trycast(v, t)
+		vc, err := rconv(v, t)
 		if err != nil {
-			panic(err)
+			panic(n.runErrorf("failed to convert %s to %s", v.Type(), t))
 		}
 		return vc
 	}
@@ -512,6 +513,7 @@ func vString(v reflect.Value) (s string) {
 		s = constant.StringVal(c)
 		return s
 	}
+	v, _ = rconv(v, reflect.TypeOf(""))
 	return v.String()
 }
 
@@ -535,6 +537,18 @@ func genValueInt(n *node) func(*frame) (reflect.Value, int64) {
 	case reflect.Complex64, reflect.Complex128:
 		if n.typ.untyped && n.rval.IsValid() && imag(n.rval.Complex()) == 0 {
 			return func(f *frame) (reflect.Value, int64) { v := value(f); return v, int64(real(v.Complex())) }
+		}
+	case reflect.Interface:
+		return func(f *frame) (reflect.Value, int64) {
+			v := value(f)
+			t := v.Type()
+			var err error
+			typeInt64 := reflect.TypeOf(int64(0))
+			v, err = rconv(v, typeInt64)
+			if err != nil {
+				panic(n.runErrorf("failed to convert %s to %s", t, typeInt64))
+			}
+			return v, v.Int()
 		}
 	}
 	return nil
@@ -600,5 +614,8 @@ func genComplex(n *node) func(*frame) complex128 {
 func genValueString(n *node) func(*frame) (reflect.Value, string) {
 	value := genValue(n)
 
-	return func(f *frame) (reflect.Value, string) { v := value(f); return v, v.String() }
+	return func(f *frame) (reflect.Value, string) {
+		v := value(f)
+		return v, cast.ToString(v.Interface())
+	}
 }

@@ -1120,6 +1120,9 @@ func (t *itype) out(i int) *itype {
 
 func (t *itype) concrete() *itype {
 	if isInterface(t) && t.val != nil {
+		if t == t.val {
+			return t
+		}
 		return t.val.concrete()
 	}
 	return t

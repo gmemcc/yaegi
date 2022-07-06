@@ -17,6 +17,7 @@ import (
 	"go/constant"
 	"go/token"
 	"reflect"
+	"github.com/spf13/cast"
 )
 
 // Arithmetic operators
@@ -29,39 +30,74 @@ func {{$name}}(n *node) {
 	c0, c1 := n.child[0], n.child[1]
 
 	switch typ.Kind() {
-	{{- if $op.Str}}
-	case reflect.String:
-		switch {
-		case isInterface:
-			v0 := genValue(c0)
-			v1 := genValue(c1)
-			n.exec = func(f *frame) bltn {
-				dest(f).Set(reflect.ValueOf(v0(f).String() {{$op.Name}} v1(f).String()).Convert(typ))
-				return next
+	case reflect.Interface, reflect.String:
+		v0 := genValue(c0)
+		v1 := genValue(c1)
+		n.exec = func(f *frame) bltn {
+			val0 := v0(f)
+			val1 := v1(f)
+			var value reflect.Value
+			{{- if $op.Str}}
+			if reflect.Indirect(val0).Type().Kind() == reflect.String {
+				value = reflect.ValueOf(rconvToString(val0) + rconvToString(val1))
+			} else {
+			{{- end}}
+				val0 = rconvNumber(val0)
+				val1 = rconvNumber(val1)
+				typ0 := val0.Type()
+				typ1 := val1.Type()
+				if isNumber(typ0) && isNumber(typ1) {
+					switch {
+					case isUint(typ0):
+						switch {
+						case isUint(typ1):
+							value = reflect.ValueOf(val0.Uint() {{$op.Name}} val1.Uint())
+						case isInt(typ1):
+							value = reflect.ValueOf(val0.Uint() {{$op.Name}} uint64(val1.Int()))
+						case isFloat(typ1):
+							value = reflect.ValueOf(val0.Uint() {{$op.Name}} uint64(val1.Float()))
+						}
+					case isInt(typ0):
+						switch {
+						case isUint(typ1):
+							value = reflect.ValueOf(val0.Int() {{$op.Name}} int64(val1.Uint()))
+						case isInt(typ1):
+							value = reflect.ValueOf(val0.Int() {{$op.Name}} val1.Int())
+						case isFloat(typ1):
+							value = reflect.ValueOf(val0.Int() {{$op.Name}} int64(val1.Float()))
+						}
+					{{- if $op.Float}}
+					case isFloat(typ0):
+						switch {
+						case isUint(typ1):
+							value = reflect.ValueOf(val0.Float() {{$op.Name}} float64(val1.Uint()))
+						case isInt(typ1):
+							value = reflect.ValueOf(val0.Float() {{$op.Name}} float64(val1.Int()))
+						case isFloat(typ1):
+							value = reflect.ValueOf(val0.Float() {{$op.Name}} float64(val1.Float()))
+						}
+					{{- else}}
+					case isFloat(typ0):
+						switch {
+						case isUint(typ1):
+							value = reflect.ValueOf(int64(val0.Float()) {{$op.Name}} int64(val1.Uint()))
+						case isInt(typ1):
+							value = reflect.ValueOf(int64(val0.Float()) {{$op.Name}} int64(val1.Int()))
+						case isFloat(typ1):
+							value = reflect.ValueOf(int64(val0.Float()) {{$op.Name}} int64(val1.Float()))
+						}
+					{{- end}}
+					}
+				} else {
+					panic("only numbers support {{$op.Name}} operator")
+				}
+			{{- if $op.Str}}			
 			}
-		case c0.rval.IsValid():
-			s0 := vString(c0.rval)
-			v1 := genValue(c1)
-			n.exec = func(f *frame) bltn {
-				dest(f).SetString(s0 {{$op.Name}} v1(f).String())
-				return next
-			}
-		case c1.rval.IsValid():
-			v0 := genValue(c0)
-			s1 :=  vString(c1.rval)
-			n.exec = func(f *frame) bltn {
-				dest(f).SetString(v0(f).String() {{$op.Name}} s1)
-				return next
-			}
-		default:
-			v0 := genValue(c0)
-			v1 := genValue(c1)
-			n.exec = func(f *frame) bltn {
-				dest(f).SetString(v0(f).String() {{$op.Name}} v1(f).String())
-				return next
-			}
+			{{- end}}
+			v, _ := rconv(value, typ)
+			dest(f).Set(v)
+			return next
 		}
-	{{- end}}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		switch {
 		case isInterface:
@@ -252,13 +288,24 @@ func {{$name}}Const(n *node) {
 		} else {
 			operator = token.QUO
 		}
-		v := constant.BinaryOp(vConstantValue(v0), operator, vConstantValue(v1))
+		cv0 := rconvConstInt(vConstantValue(v0))
+		cv1 := rconvConstInt(vConstantValue(v1))			
+		v := constant.BinaryOp(cv0, operator, cv1)
 		n.rval.Set(reflect.ValueOf(v))
 		{{- else}}
 		{{- if $op.Int}}
-		v := constant.BinaryOp(constant.ToInt(vConstantValue(v0)), token.{{tokenFromName $name}}, constant.ToInt(vConstantValue(v1)))
+		cv0 := rconvConstInt(vConstantValue(v0))
+		cv1 := rconvConstInt(vConstantValue(v1))		
+		v := constant.BinaryOp(constant.ToInt(cv0), token.{{tokenFromName $name}}, constant.ToInt(cv1))
+		{{- else if $op.Str}}
+		cv0 := vConstantValue(v0)
+		cv1 := vConstantValue(v1)
+		cv1 = rconvConst(cv1, cv0.Kind())
+		v := constant.BinaryOp(cv0, token.{{tokenFromName $name}}, cv1)
 		{{- else}}
-		v := constant.BinaryOp(vConstantValue(v0), token.{{tokenFromName $name}}, vConstantValue(v1))
+		cv0 := rconvConstNumber(vConstantValue(v0))
+		cv1 := rconvConstNumber(vConstantValue(v1))
+		v := constant.BinaryOp(cv0, token.{{tokenFromName $name}}, cv1)
 		{{- end}}
 		n.rval.Set(reflect.ValueOf(v))
 		{{- end}}
@@ -632,8 +679,21 @@ func {{$name}}(n *node) {
 		if n.fnext != nil {
 			fnext := getExec(n.fnext)
 			n.exec = func(f *frame) bltn {
-				i0 := v0(f).Interface()
-				i1 := v1(f).Interface()
+				val0 := v0(f)
+				val1 := v1(f)
+				var err error
+				var typ0 reflect.Type
+				if val0.Kind() == reflect.Interface {
+					typ0 = val0.Elem().Type()
+				} else {
+					typ0 = val0.Type()
+				}
+				val1, err = rconv(val1, typ0)
+				if err != nil {
+					panic(err)
+				}
+				i0 := val0.Interface()
+				i1 := val1.Interface()
 				if i0 {{$op.Name}} i1 {
 					dest(f).SetBool(true)
 					return tnext
@@ -646,7 +706,8 @@ func {{$name}}(n *node) {
 			n.exec = func(f *frame) bltn {
 				i0 := v0(f).Interface()
 				i1 := v1(f).Interface()
-				dest(f).SetBool(i0 {{$op.Name}} i1)
+				x := i0 {{$op.Name}} i1
+				dest(f).Set(reflect.ValueOf(x))
 				return tnext
 			}
 		}
@@ -668,12 +729,15 @@ func {{$name}}(n *node) {
 			}
 		case c0.rval.IsValid():
 			s0 :=  vString(c0.rval)
+			{{- if eq $op.Name "=="}}
+			c0Bool := c0.rval.Kind() == reflect.Bool
+			{{- end}}
 			v1 := genValueString(c1)
 			if n.fnext != nil {
 				fnext := getExec(n.fnext)
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					if s0 {{$op.Name}} s1 {
+					if s0 {{$op.Name}} s1 {{if eq $op.Name "=="}}|| c0Bool && cast.ToBool(s1) {{end}}{
 						dest(f).SetBool(true)
 						return tnext
 					}

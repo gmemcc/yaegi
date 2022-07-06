@@ -1,8 +1,8 @@
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/frankban/quicktest v1.14.3 h1:FJKSZTDHjyhriyC81FLQ0LY93eSai0ZyR/ZIkd3ZUKE=
 github.com/frankban/quicktest v1.14.3/go.mod h1:mgiwOwqx65TmIk1wJ6Q7wvnVMocbUorkibMOrVTHZps=
-github.com/gmemcc/cast v1.5.1-0.20220527141822-f9f59eccb45b h1:2fmWeyHlhXxlCSPkd1TqiDy5iI4djwBZv17NE8PNFcg=
-github.com/gmemcc/cast v1.5.1-0.20220527141822-f9f59eccb45b/go.mod h1:SpXXQ5YoyJw6s3/6cMTQuxvgRl3PCJiyaX9p6b155UU=
+github.com/gmemcc/cast v1.5.1-0.20220706085508-ce396ac3bb13 h1:TAnwpLXKRDZSP47+NJWhI746JthJ90LPlwbZi+c8NV8=
+github.com/gmemcc/cast v1.5.1-0.20220706085508-ce396ac3bb13/go.mod h1:SpXXQ5YoyJw6s3/6cMTQuxvgRl3PCJiyaX9p6b155UU=
 github.com/gmemcc/copier v0.3.6-0.20220523071557-031548cb776a h1:HwvFHkDcKmIwOpv7TO0cphiC7z+8vMWUeD5zeo8fM/w=
 github.com/gmemcc/copier v0.3.6-0.20220523071557-031548cb776a/go.mod h1:DfbEm0FYsaqBcKcFuvmOZb218JkPGtvSHsKg8S8hyyg=
 github.com/google/go-cmp v0.5.7 h1:81/ik6ipDQS2aGcBfIN5dHDB36BwrStyeAQquSYCV4o=

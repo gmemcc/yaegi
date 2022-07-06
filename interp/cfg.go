@@ -1198,12 +1198,12 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case forStmt2: // for cond {}
 			cond, body := n.child[0], n.child[1]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as for condition")
 			}
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					n.start = body.start
 					body.tnext = body.start
 				}
@@ -1217,13 +1217,13 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case forStmt3: // for init; cond; {}
 			init, cond, body := n.child[0], n.child[1], n.child[2]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as for condition")
 			}
 			n.start = init.start
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					init.tnext = body.start
 					body.tnext = body.start
 				} else {
@@ -1246,12 +1246,12 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case forStmt5: // for ; cond; post {}
 			cond, post, body := n.child[0], n.child[1], n.child[2]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as for condition")
 			}
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					n.start = body.start
 					post.tnext = body.start
 				}
@@ -1274,13 +1274,13 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case forStmt7: // for init; cond; post {}
 			init, cond, post, body := n.child[0], n.child[1], n.child[2], n.child[3]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as for condition")
 			}
 			n.start = init.start
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					init.tnext = body.start
 					post.tnext = body.start
 				} else {
@@ -1367,12 +1367,12 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case ifStmt0: // if cond {}
 			cond, tbody := n.child[0], n.child[1]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as if condition")
 			}
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					n.start = tbody.start
 				}
 			} else {
@@ -1385,12 +1385,12 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case ifStmt1: // if cond {} else {}
 			cond, tbody, fbody := n.child[0], n.child[1], n.child[2]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as if condition")
 			}
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test and the useless branch.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					n.start = tbody.start
 				} else {
 					n.start = fbody.start
@@ -1406,13 +1406,13 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case ifStmt2: // if init; cond {}
 			init, cond, tbody := n.child[0], n.child[1], n.child[2]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as if condition")
 			}
 			n.start = init.start
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					init.tnext = tbody.start
 				} else {
 					init.tnext = n
@@ -1427,13 +1427,13 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 
 		case ifStmt3: // if init; cond {} else {}
 			init, cond, tbody, fbody := n.child[0], n.child[1], n.child[2], n.child[3]
-			if !isBool(cond.typ) {
+			if !canIconvBool(cond.typ) {
 				err = cond.cfgErrorf("non-bool used as if condition")
 			}
 			n.start = init.start
 			if cond.rval.IsValid() {
 				// Condition is known at compile time, bypass test.
-				if cond.rval.Bool() {
+				if rconvToBool(cond.rval) {
 					init.tnext = tbody.start
 				} else {
 					init.tnext = fbody.start
