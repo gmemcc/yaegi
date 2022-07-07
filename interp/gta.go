@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"log"
 	"path"
 	"path/filepath"
 )
@@ -94,7 +95,11 @@ func (interp *Interpreter) gta(root *node, rpath, importPath, pkgName string) ([
 				if typ.isBinMethod {
 					typ = valueTOf(typ.methodCallType(), isBinMethod(), withScope(sc))
 				}
-				sc.sym[dest.ident] = &symbol{kind: varSym, global: true, index: sc.add(typ), typ: typ, rval: val, node: n}
+				index, err := sc.add(typ)
+				if err != nil {
+					log.Panic(n.cfgErrorf(err.Error()))
+				}
+				sc.sym[dest.ident] = &symbol{kind: varSym, global: true, index: index, typ: typ, rval: val, node: n}
 				if n.anc.kind == constDecl {
 					sc.sym[dest.ident].kind = constSym
 					if childPos(n) == len(n.anc.child)-1 {
@@ -125,7 +130,12 @@ func (interp *Interpreter) gta(root *node, rpath, importPath, pkgName string) ([
 				asImportName := filepath.Join(c.ident, baseName)
 				sym, exists := sc.sym[asImportName]
 				if !exists {
-					sc.sym[c.ident] = &symbol{index: sc.add(n.typ), kind: varSym, global: true, typ: n.typ, node: n}
+					var index int
+					index, err = sc.add(n.typ)
+					if err != nil {
+						log.Panic(n.cfgErrorf(err.Error()))
+					}
+					sc.sym[c.ident] = &symbol{index: index, kind: varSym, global: true, typ: n.typ, node: n}
 					continue
 				}
 				c.level = globalFrame

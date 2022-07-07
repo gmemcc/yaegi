@@ -1,7 +1,7 @@
 package interp
 
 import (
-	"log"
+	"errors"
 	"reflect"
 	"strconv"
 )
@@ -201,14 +201,14 @@ func (s *scope) getType(ident string) *itype {
 }
 
 // add adds a type to the scope types array, and returns its index.
-func (s *scope) add(typ *itype) (index int) {
+func (s *scope) add(typ *itype) (index int, err error) {
 	if typ == nil {
-		log.Panic("nil type")
+		return index, errors.New("nil type")
 	}
 	index = len(s.types)
 	t := typ.frameType()
 	if t == nil {
-		log.Panic("nil reflect type")
+		return index, errors.New("nil reflect type")
 	}
 	s.types = append(s.types, t)
 	return

@@ -1,23 +1,12 @@
 package interp
 
 import (
-	"fmt"
 	"go/constant"
-	"log"
 	"math"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"unicode"
 )
-
-// A cfgError represents an error during CFG build stage.
-type cfgError struct {
-	*node
-	error
-}
-
-func (c *cfgError) Error() string { return c.error.Error() }
 
 var constOp = map[action]func(*node){
 	aAdd:    addConst,
@@ -129,7 +118,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				if t := sc.rangeChanType(n.anc); t != nil {
 					// range over channel
 					e := n.anc.child[0]
-					index := sc.add(t.val)
+					var index int
+					index, err = sc.add(t.val)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
 					sc.sym[e.ident] = &symbol{index: index, kind: varSym, typ: t.val}
 					e.typ = t.val
 					e.findex = index
@@ -148,6 +141,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					case valueT:
 						typ := o.typ.rtype
 						switch typ.Kind() {
+						case reflect.Interface:
+							n.anc.gen = rangeDynamic
+							sc.add(sc.getType("interface{}")) // for map / array to be ranged over
+							ktyp = sc.getType("interface{}")  // idx
+							vtyp = sc.getType("interface{}")  // val
 						case reflect.Map:
 							n.anc.gen = rangeMap
 							ityp := valueTOf(reflect.TypeOf((*reflect.MapIter)(nil)))
@@ -189,13 +187,21 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						vtyp = o.typ.val
 					}
 
-					kindex := sc.add(ktyp)
+					var kindex int
+					kindex, err = sc.add(ktyp)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
 					sc.sym[k.ident] = &symbol{index: kindex, kind: varSym, typ: ktyp}
 					k.typ = ktyp
 					k.findex = kindex
 
 					if v != nil {
-						vindex := sc.add(vtyp)
+						var vindex int
+						vindex, err = sc.add(vtyp)
+						if err != nil {
+							panic(n.cfgErrorf(err.Error()))
+						}
 						sc.sym[v.ident] = &symbol{index: vindex, kind: varSym, typ: vtyp}
 						v.typ = vtyp
 						v.findex = vindex
@@ -262,7 +268,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					return false
 				}
 				nod := n.lastChild().child[0]
-				index := sc.add(typ)
+				var index int
+				index, err = sc.add(typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 				sc.sym[nod.ident] = &symbol{index: index, kind: varSym, typ: typ}
 				nod.findex = index
 				nod.typ = typ
@@ -285,7 +295,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				}
 				elem := chanElement(typ)
 				assigned := n.child[0].child[0]
-				index := sc.add(elem)
+				var index int
+				index, err = sc.add(elem)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 				sc.sym[assigned.ident] = &symbol{index: index, kind: varSym, typ: elem}
 				assigned.findex = index
 				assigned.typ = elem
@@ -353,7 +367,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			if n.typ, err = nodeType(interp, sc, n); err != nil {
 				return false
 			}
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			fallthrough
 
 		case funcDecl:
@@ -373,7 +390,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					}
 					if len(c.child) > 1 {
 						for _, cc := range c.child[:len(c.child)-1] {
-							sc.sym[cc.ident] = &symbol{index: sc.add(typ), kind: varSym, typ: typ}
+							index, err := sc.add(typ)
+							if err != nil {
+								panic(n.cfgErrorf(err.Error()))
+							}
+							sc.sym[cc.ident] = &symbol{index: index, kind: varSym, typ: typ}
 						}
 					} else {
 						sc.add(typ)
@@ -391,7 +412,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				recvTypeNode.typ = typ
 				n.child[2].typ.recv = typ
 				n.typ.recv = typ
-				index := sc.add(typ)
+				index, err := sc.add(typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 				if len(fr.child) > 1 {
 					sc.sym[fr.child[0].ident] = &symbol{index: index, kind: varSym, typ: typ}
 				}
@@ -403,7 +427,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					return false
 				}
 				for _, cc := range c.child[:len(c.child)-1] {
-					sc.sym[cc.ident] = &symbol{index: sc.add(typ), kind: varSym, typ: typ}
+					index, err := sc.add(typ)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
+					sc.sym[cc.ident] = &symbol{index: index, kind: varSym, typ: typ}
 				}
 			}
 			if n.child[1].ident == "init" && len(n.child[0].child) == 0 {
@@ -498,7 +526,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			}
 
 			n.typ = ptrOf(n.child[0].typ)
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 
 		case assignStmt, defineStmt:
 			if n.anc.kind == typeSwitch && n.anc.child[1] == n {
@@ -554,7 +585,11 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						sym, _, _ = sc.lookup(dest.ident)
 					}
 					if sym == nil {
-						sym = &symbol{index: sc.add(dest.typ), kind: varSym, typ: dest.typ}
+						index, err := sc.add(dest.typ)
+						if err != nil {
+							panic(n.cfgErrorf(err.Error()))
+						}
+						sym = &symbol{index: index, kind: varSym, typ: dest.typ}
 						sc.sym[dest.ident] = sym
 					}
 					dest.val = src.val
@@ -780,7 +815,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				n.findex = pos
 			default:
 				// Allocate a new location in frame, and store the result here.
-				n.findex = sc.add(n.typ)
+				n.findex, err = sc.add(n.typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 			}
 
 		case indexExpr:
@@ -820,7 +858,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			if n.typ == nil {
 				n.typ = t
 			}
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			typ := t.TypeOf()
 			if typ.Kind() == reflect.Map {
 				err = check.assignment(n.child[1], t.key, "map index")
@@ -982,7 +1023,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					n.findex = notInFrame
 					n.gen = nop
 				default:
-					n.findex = sc.add(n.typ)
+					n.findex, err = sc.add(n.typ)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
 				}
 				if op, ok := constBltn[bname]; ok && n.anc.action != aAssign {
 					op(n) // pre-compute non-assigned constant :
@@ -1032,7 +1076,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				default:
 					n.gen = convert
 					n.typ = c0.typ
-					n.findex = sc.add(n.typ)
+					n.findex, err = sc.add(n.typ)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
 				}
 			case isBinCall(n, sc):
 				err = check.arguments(n, n.child[1:], n.child[0], n.action == aCallSlice)
@@ -1047,7 +1094,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						// Use the original unwrapped function type, to allow future field and
 						// methods resolutions, otherwise impossible on the opaque bin type.
 						n.typ = funcType.ret[0]
-						n.findex = sc.add(n.typ)
+						n.findex, err = sc.add(n.typ)
+						if err != nil {
+							panic(n.cfgErrorf(err.Error()))
+						}
 						for i := 1; i < len(funcType.ret); i++ {
 							sc.add(funcType.ret[i])
 						}
@@ -1056,7 +1106,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						if n.anc.kind == returnStmt {
 							n.findex = childPos(n)
 						} else {
-							n.findex = sc.add(n.typ)
+							n.findex, err = sc.add(n.typ)
+							if err != nil {
+								panic(n.cfgErrorf(err.Error()))
+							}
 							for i := 1; i < typ.NumOut(); i++ {
 								sc.add(valueTOf(typ.Out(i)))
 							}
@@ -1094,7 +1147,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						// It can be done only if no type conversion at return is involved.
 						n.findex = childPos(n)
 					} else {
-						n.findex = sc.add(n.typ)
+						n.findex, err = sc.add(n.typ)
+						if err != nil {
+							panic(n.cfgErrorf(err.Error()))
+						}
 						for _, t := range typ.ret[1:] {
 							sc.add(t)
 						}
@@ -1169,7 +1225,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				break
 			}
 
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			// TODO: Check that composite literal expr matches corresponding type
 			n.gen = compositeGenerator(n, n.typ, nil)
 
@@ -1464,7 +1523,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			setFNext(n.child[0], n)
 			n.child[1].tnext = n
 			n.typ = n.child[0].typ
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			if n.start.action == aNop {
 				n.start.gen = branch
 			}
@@ -1479,7 +1541,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			setFNext(n.child[0], n.child[1].start)
 			n.child[1].tnext = n
 			n.typ = n.child[0].typ
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			if n.start.action == aNop {
 				n.start.gen = branch
 			}
@@ -1765,7 +1830,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				}
 			}
 			if err == nil && n.findex != -1 {
-				n.findex = sc.add(n.typ)
+				n.findex, err = sc.add(n.typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 			}
 
 		case selectStmt:
@@ -1847,7 +1915,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				} else {
 					n.typ = c0.typ.val
 				}
-				n.findex = sc.add(n.typ)
+				n.findex, err = sc.add(n.typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 			}
 
 		case typeSwitch:
@@ -1986,7 +2057,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				} else {
 					n.typ = c1.typ
 				}
-				n.findex = sc.add(n.typ)
+				n.findex, err = sc.add(n.typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 			}
 
 		case sliceExpr:
@@ -2000,7 +2074,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			if n.typ, err = nodeType(interp, sc, n); err != nil {
 				return
 			}
-			n.findex = sc.add(n.typ)
+			n.findex, err = sc.add(n.typ)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 
 		case unaryExpr:
 			wireChild(n)
@@ -2044,7 +2121,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				n.typ = sc.def.typ.ret[pos]
 				n.findex = pos
 			default:
-				n.findex = sc.add(n.typ)
+				n.findex, err = sc.add(n.typ)
+				if err != nil {
+					panic(n.cfgErrorf(err.Error()))
+				}
 			}
 
 		case valueSpec:
@@ -2063,7 +2143,10 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 					index = sc.sym[c.ident].index
 					c.level = globalFrame
 				} else {
-					index = sc.add(n.typ)
+					index, err = sc.add(n.typ)
+					if err != nil {
+						panic(n.cfgErrorf(err.Error()))
+					}
 					sc.sym[c.ident] = &symbol{index: index, kind: varSym, typ: n.typ}
 				}
 				c.typ = n.typ
@@ -2148,7 +2231,11 @@ func compDefineX(sc *scope, n *node) error {
 			// Reuse symbol in case of a variable redeclaration with the same type.
 			index = sym.index
 		} else {
-			index = sc.add(t)
+			var err error
+			index, err = sc.add(t)
+			if err != nil {
+				panic(n.cfgErrorf(err.Error()))
+			}
 			sc.sym[id] = &symbol{index: index, kind: varSym, typ: t}
 		}
 		n.child[i].typ = t
@@ -2173,16 +2260,6 @@ func childPos(n *node) int {
 		}
 	}
 	return -1
-}
-
-func (n *node) cfgErrorf(format string, a ...interface{}) *cfgError {
-	pos := n.interp.fset.Position(n.pos)
-	posString := n.interp.fset.Position(n.pos).String()
-	if pos.Filename == DefaultSourceName {
-		posString = strings.TrimPrefix(posString, DefaultSourceName+":")
-	}
-	a = append([]interface{}{posString}, a...)
-	return &cfgError{n, fmt.Errorf("%s: "+format, a...)}
 }
 
 func genRun(nod *node) error {
@@ -2730,7 +2807,7 @@ func compositeGenerator(n *node, typ *itype, rtyp reflect.Type) (gen bltnGenerat
 		case reflect.Slice, reflect.Array:
 			gen = compositeBinSlice
 		default:
-			log.Panic(n.cfgErrorf("compositeGenerator not implemented for type kind: %s", k))
+			panic(n.cfgErrorf("compositeGenerator not implemented for type kind: %s", k))
 		}
 	}
 	return gen

@@ -12,24 +12,6 @@ import (
 	"strings"
 )
 
-// A runError represents an error during runtime.
-type runError struct {
-	*node
-	error
-}
-
-func (c *runError) Error() string { return c.error.Error() }
-
-func (n *node) runErrorf(format string, a ...interface{}) *runError {
-	pos := n.interp.fset.Position(n.pos)
-	posString := n.interp.fset.Position(n.pos).String()
-	if pos.Filename == DefaultSourceName {
-		posString = strings.TrimPrefix(posString, DefaultSourceName+":")
-	}
-	a = append([]interface{}{posString}, a...)
-	return &runError{n, fmt.Errorf("%s: "+format, a...)}
-}
-
 // bltn type defines functions which run at CFG execution.
 type bltn func(f *frame) bltn
 
@@ -494,7 +476,11 @@ func typeAssert(n *node, withResult, withOk bool) {
 			if !ok {
 				if !withOk {
 					method := firstMissingMethod(v.Type(), rtype)
-					panic(fmt.Sprintf("interface conversion: %s is not %s: missing method %s", v.Type().String(), rtype.String(), method))
+					if method != "" {
+						panic(n.runErrorf("interface conversion: %s is not %s: missing method %s", v.Type().String(), rtype.String(), method))
+					} else {
+						panic(n.runErrorf("interface conversion: %s is not %s", v.Type().String(), rtype.String()))
+					}
 				}
 				return next
 			}
@@ -1533,7 +1519,7 @@ func callBin(n *node) {
 			}
 			inType := inVal.Type()
 			if inType != inTypeExpected {
-				if i == vNumIn-1 && inTypeExpected.Kind() == reflect.Slice && inType == inTypeExpected.Elem() {
+				if i == vNumIn-1 && vType.IsVariadic() {
 					// variadic argument, no cast
 					break
 				}
@@ -2962,6 +2948,72 @@ func rangeMap(n *node) {
 	next := n.exec
 	n.child[0].exec = func(f *frame) bltn {
 		f.data[index2].Set(reflect.ValueOf(value(f).MapRange()))
+		return next
+	}
+}
+
+func rangeDynamic(n *node) {
+	index0 := n.child[0].findex // index location in frame
+	index2 := index0 - 1        // iterator for range, always just behind index0
+	fnext := getExec(n.fnext)
+	tnext := getExec(n.tnext)
+
+	var value func(*frame) reflect.Value
+	if len(n.child) == 4 {
+		index1 := n.child[1].findex
+		value = genValue(n.child[2])
+		n.exec = func(f *frame) bltn {
+			iterable := f.data[index2]
+			iter, ok := iterable.Interface().(*reflect.MapIter)
+			if ok {
+				// map
+				if !iter.Next() {
+					return fnext
+				}
+				f.data[index0].Set(iter.Key())
+				f.data[index1].Set(iter.Value())
+				return tnext
+			} else {
+				iterable = iterable.Elem()
+				ival := f.data[index0]
+				eval := f.data[index1]
+				var idx int
+				if ival.IsZero() {
+					idx = 0
+				} else {
+					idx = int(ival.Elem().Int() + 1)
+				}
+				if iterable.Len() <= idx {
+					return fnext
+				}
+				el := iterable.Index(idx)
+				ival.Set(reflect.ValueOf(idx))
+				eval.Set(el)
+				return tnext
+			}
+		}
+	} else {
+		value = genValue(n.child[1])
+		n.exec = func(f *frame) bltn {
+			iter := f.data[index2].Interface().(*reflect.MapIter)
+			if !iter.Next() {
+				return fnext
+			}
+			f.data[index0].Set(iter.Key())
+			return tnext
+		}
+	}
+
+	// Init sequence
+	next := n.exec
+	n.child[0].exec = func(f *frame) bltn {
+		val := value(f)
+		val = rconvToConcrete(val)
+		if val.Kind() == reflect.Map {
+			f.data[index2].Set(reflect.ValueOf(val.MapRange()))
+		} else {
+			f.data[index2].Set(val)
+		}
 		return next
 	}
 }

@@ -33,108 +33,108 @@ func canRconvBool(t reflect.Type) bool {
 	return t.Kind() == reflect.Bool || t.Kind() == reflect.Interface || isNumber(t) || isString(t)
 }
 
-func rconv(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
-	valt := val.Type()
-	if valt == expected {
-		return val, nil
+func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) {
+	srcType := src.Type()
+	if srcType == expectedType {
+		return src, nil
 	}
-	if valt.Kind() == expected.Kind() && valt.Kind() != reflect.Struct &&
-		(valt.PkgPath() != expected.PkgPath() || valt.Name() != expected.Name()) {
+	if srcType.Kind() == expectedType.Kind() && srcType.Kind() != reflect.Struct &&
+		(srcType.PkgPath() != expectedType.PkgPath() || srcType.Name() != expectedType.Name()) {
 		// type def from existing type
-		return val.Convert(expected), nil
+		return src.Convert(expectedType), nil
 	}
-	value := val.Interface()
-	switch expected.Kind() {
+	value := src.Interface()
+	switch expectedType.Kind() {
 	case reflect.Bool:
 		casted, err := cast.ToBoolE(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Int:
 		casted, err := cast.ToIntE(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Int8:
 		casted, err := cast.ToInt8E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Int16:
 		casted, err := cast.ToInt16E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Int32:
 		casted, err := cast.ToInt32E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Int64:
 		casted, err := cast.ToInt64E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Uint:
 		casted, err := cast.ToUintE(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Uint8:
 		casted, err := cast.ToUint8E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Uint16:
 		casted, err := cast.ToUint16E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Uint32:
 		casted, err := cast.ToUint32E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Uint64:
 		casted, err := cast.ToUint64E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Float32:
 		casted, err := cast.ToFloat32E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.Float64:
 		casted, err := cast.ToFloat64E(value)
 		if err == nil {
 			return reflect.ValueOf(casted), nil
 		} else {
-			return val, err
+			return src, err
 		}
 	case reflect.String:
 		switch reflect.ValueOf(value).Kind() {
@@ -147,12 +147,12 @@ func rconv(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			if err == nil {
 				return reflect.ValueOf(casted), nil
 			} else {
-				return val, err
+				return src, err
 			}
 		}
 	case reflect.Struct:
-		castedPtrValue := reflect.New(expected)
-		indirect := reflect.Indirect(val)
+		castedPtrValue := reflect.New(expectedType)
+		indirect := reflect.Indirect(src)
 		kind := indirect.Kind()
 		switch kind {
 		case reflect.String:
@@ -161,71 +161,75 @@ func rconv(val reflect.Value, expected reflect.Type) (reflect.Value, error) {
 			if err == nil {
 				return castedPtrValue.Elem(), nil
 			} else {
-				return val, err
+				return src, err
 			}
 		case reflect.Struct:
 			err := copier.Copy(castedPtrValue.Interface(), value)
 			if err == nil {
 				return castedPtrValue.Elem(), nil
 			} else {
-				return val, err
+				return src, err
 			}
 		case reflect.Interface:
-			return indirect.Elem().Convert(expected), nil
+			return indirect.Elem().Convert(expectedType), nil
 		default:
-			return val, errors.New(fmt.Sprintf(""))
+			return src, errors.New(fmt.Sprintf(""))
 		}
 	case reflect.Map:
-		if valt.Kind() != reflect.Map {
-			return val, nil
+		if srcType.Kind() != reflect.Map {
+			return src, nil
 		}
-		ktype := expected.Key()
-		vtype := expected.Elem()
-		castedValue := reflect.MakeMapWithSize(expected, 0)
-		keys := val.MapKeys()
+		ktype := expectedType.Key()
+		vtype := expectedType.Elem()
+		castedValue := reflect.MakeMapWithSize(expectedType, 0)
+		keys := src.MapKeys()
 		for i := 0; i < len(keys); i++ {
 			k := keys[i]
-			v := val.MapIndex(k)
+			v := src.MapIndex(k)
 			var kcasted, vcasted reflect.Value
 			var err error
 			kcasted, err = rconv(k, ktype)
 			if err != nil {
-				return val, err
+				return src, err
 			}
 			vcasted, err = rconv(v, vtype)
 			if err != nil {
-				return val, err
+				return src, err
 			}
 			castedValue.SetMapIndex(kcasted, vcasted)
 		}
 		return castedValue, nil
 	case reflect.Slice:
-		if valt.Kind() != reflect.Slice {
-			return val, nil
+		src = rconvToConcrete(src)
+		srcType = src.Type()
+		if srcType.Kind() == reflect.String {
+			return rconv(reflect.ValueOf([]uint8(src.String())), expectedType)
+		} else if srcType.Kind() != reflect.Slice {
+			return src, nil
 		}
-		vtype := expected.Elem()
-		castedValue := reflect.MakeSlice(expected, val.Len(), val.Cap())
-		for i := 0; i < val.Len(); i++ {
-			vcasted, err := rconv(val.Index(i), vtype)
+		vtype := expectedType.Elem()
+		castedValue := reflect.MakeSlice(expectedType, src.Len(), src.Cap())
+		for i := 0; i < src.Len(); i++ {
+			vcasted, err := rconv(src.Index(i), vtype)
 			if err == nil {
 				castedValue.Index(i).Set(vcasted)
 			} else {
-				return val, err
+				return src, err
 			}
 		}
 		return castedValue, nil
 	case reflect.Ptr:
-		castedValue, err := rconv(val, expected.Elem())
+		castedValue, err := rconv(src, expectedType.Elem())
 		casted := castedValue.Interface()
 		if err == nil {
 			castedPtrVal := reflect.New(reflect.TypeOf(casted))
 			castedPtrVal.Elem().Set(castedValue)
 			return castedPtrVal, nil
 		} else {
-			return val, err
+			return src, err
 		}
 	default:
-		return val, nil
+		return src, nil
 	}
 }
 
@@ -306,6 +310,14 @@ func constToInterface(value constant.Value) interface{} {
 		return v
 	default:
 		return nil
+	}
+}
+
+func rconvToConcrete(value reflect.Value) reflect.Value {
+	if value.Kind() == reflect.Interface {
+		return rconvToConcrete(value.Elem())
+	} else {
+		return value
 	}
 }
 
