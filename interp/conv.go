@@ -34,6 +34,9 @@ func canRconvBool(t reflect.Type) bool {
 }
 
 func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) {
+	if !src.IsValid() {
+		return src, nil
+	}
 	srcType := src.Type()
 	if srcType == expectedType {
 		return src, nil
