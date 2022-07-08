@@ -44,6 +44,7 @@ type node struct {
 	nright int            // number of children in right part (assign)
 	kind   nkind          // kind of node
 	pos    token.Pos      // position in source code, relative to fset
+	end    token.Pos      // end position in source code
 	sym    *symbol        // associated symbol
 	typ    *itype         // type of value in frame, or nil
 	recv   *receiver      // method receiver node for call, or nil

@@ -433,10 +433,10 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 	var st nodestack
 	pkgName := "main"
 
-	addChild := func(root **node, anc astNode, pos token.Pos, kind nkind, act action) *node {
+	addChild := func(root **node, anc astNode, pos, end token.Pos, kind nkind, act action) *node {
 		var i interface{}
 		nindex := atomic.AddInt64(&interp.nindex, 1)
-		n := &node{anc: anc.node, interp: interp, index: nindex, pos: pos, kind: kind, action: act, val: &i, gen: builtin[act]}
+		n := &node{anc: anc.node, interp: interp, index: nindex, pos: pos, end: end, kind: kind, action: act, val: &i, gen: builtin[act]}
 		n.start = n
 		if anc.node == nil {
 			*root = n
@@ -475,16 +475,17 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 	// A stack of ancestor nodes is used to keep track of current ancestor for each depth level
 	ast.Inspect(f, func(nod ast.Node) bool {
 		anc = st.top()
-		var pos token.Pos
+		var pos, end token.Pos
 		if nod != nil {
 			pos = nod.Pos()
+			end = nod.End()
 		}
 		switch a := nod.(type) {
 		case nil:
 			anc = st.pop()
 
 		case *ast.ArrayType:
-			st.push(addChild(&root, anc, pos, arrayType, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, arrayType, aNop), nod)
 
 		case *ast.AssignStmt:
 			var act action
@@ -528,13 +529,13 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 					act = aXorAssign
 				}
 			}
-			n := addChild(&root, anc, pos, kind, act)
+			n := addChild(&root, anc, pos, end, kind, act)
 			n.nleft = len(a.Lhs)
 			n.nright = len(a.Rhs)
 			st.push(n, nod)
 
 		case *ast.BasicLit:
-			n := addChild(&root, anc, pos, basicLit, aNop)
+			n := addChild(&root, anc, pos, end, basicLit, aNop)
 			n.ident = a.Value
 			switch a.Kind {
 			case token.CHAR:
@@ -592,10 +593,10 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case token.XOR:
 				act = aXor
 			}
-			st.push(addChild(&root, anc, pos, kind, act), nod)
+			st.push(addChild(&root, anc, pos, end, kind, act), nod)
 
 		case *ast.BlockStmt:
-			st.push(addChild(&root, anc, pos, blockStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, blockStmt, aNop), nod)
 
 		case *ast.BranchStmt:
 			var kind nkind
@@ -609,7 +610,7 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case token.GOTO:
 				kind = gotoStmt
 			}
-			st.push(addChild(&root, anc, pos, kind, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, kind, aNop), nod)
 
 		case *ast.CallExpr:
 			action := aCall
@@ -617,19 +618,19 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 				action = aCallSlice
 			}
 
-			st.push(addChild(&root, anc, pos, callExpr, action), nod)
+			st.push(addChild(&root, anc, pos, end, callExpr, action), nod)
 
 		case *ast.CaseClause:
-			st.push(addChild(&root, anc, pos, caseClause, aCase), nod)
+			st.push(addChild(&root, anc, pos, end, caseClause, aCase), nod)
 
 		case *ast.ChanType:
 			switch a.Dir {
 			case ast.SEND | ast.RECV:
-				st.push(addChild(&root, anc, pos, chanType, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, chanType, aNop), nod)
 			case ast.SEND:
-				st.push(addChild(&root, anc, pos, chanTypeSend, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, chanTypeSend, aNop), nod)
 			case ast.RECV:
-				st.push(addChild(&root, anc, pos, chanTypeRecv, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, chanTypeRecv, aNop), nod)
 			}
 
 		case *ast.CommClause:
@@ -637,35 +638,35 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			if a.Comm == nil {
 				kind = commClauseDefault
 			}
-			st.push(addChild(&root, anc, pos, kind, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, kind, aNop), nod)
 
 		case *ast.CommentGroup, *ast.EmptyStmt:
 			return false
 
 		case *ast.CompositeLit:
-			st.push(addChild(&root, anc, pos, compositeLitExpr, aCompositeLit), nod)
+			st.push(addChild(&root, anc, pos, end, compositeLitExpr, aCompositeLit), nod)
 
 		case *ast.DeclStmt:
-			st.push(addChild(&root, anc, pos, declStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, declStmt, aNop), nod)
 
 		case *ast.DeferStmt:
-			st.push(addChild(&root, anc, pos, deferStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, deferStmt, aNop), nod)
 
 		case *ast.Ellipsis:
-			st.push(addChild(&root, anc, pos, ellipsisExpr, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, ellipsisExpr, aNop), nod)
 
 		case *ast.ExprStmt:
-			st.push(addChild(&root, anc, pos, exprStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, exprStmt, aNop), nod)
 
 		case *ast.Field:
-			st.push(addChild(&root, anc, pos, fieldExpr, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, fieldExpr, aNop), nod)
 
 		case *ast.FieldList:
-			st.push(addChild(&root, anc, pos, fieldList, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, fieldList, aNop), nod)
 
 		case *ast.File:
 			pkgName = a.Name.Name
-			st.push(addChild(&root, anc, pos, fileStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, fileStmt, aNop), nod)
 
 		case *ast.ForStmt:
 			// Disambiguate variants of FOR statements with a node kind per variant
@@ -688,25 +689,25 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case a.Cond != nil && a.Init != nil && a.Post != nil:
 				kind = forStmt7
 			}
-			st.push(addChild(&root, anc, pos, kind, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, kind, aNop), nod)
 
 		case *ast.FuncDecl:
-			n := addChild(&root, anc, pos, funcDecl, aNop)
+			n := addChild(&root, anc, pos, end, funcDecl, aNop)
 			n.val = n
 			if a.Recv == nil {
 				// function is not a method, create an empty receiver list
-				addChild(&root, astNode{n, nod}, pos, fieldList, aNop)
+				addChild(&root, astNode{n, nod}, pos, end, fieldList, aNop)
 			}
 			st.push(n, nod)
 
 		case *ast.FuncLit:
-			n := addChild(&root, anc, pos, funcLit, aGetFunc)
-			addChild(&root, astNode{n, nod}, pos, fieldList, aNop)
-			addChild(&root, astNode{n, nod}, pos, undefNode, aNop)
+			n := addChild(&root, anc, pos, end, funcLit, aGetFunc)
+			addChild(&root, astNode{n, nod}, pos, end, fieldList, aNop)
+			addChild(&root, astNode{n, nod}, pos, end, undefNode, aNop)
 			st.push(n, nod)
 
 		case *ast.FuncType:
-			st.push(addChild(&root, anc, pos, funcType, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, funcType, aNop), nod)
 
 		case *ast.GenDecl:
 			var kind nkind
@@ -720,13 +721,13 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case token.VAR:
 				kind = varDecl
 			}
-			st.push(addChild(&root, anc, pos, kind, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, kind, aNop), nod)
 
 		case *ast.GoStmt:
-			st.push(addChild(&root, anc, pos, goStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, goStmt, aNop), nod)
 
 		case *ast.Ident:
-			n := addChild(&root, anc, pos, identExpr, aNop)
+			n := addChild(&root, anc, pos, end, identExpr, aNop)
 			n.ident = a.Name
 			st.push(n, nod)
 			if n.anc.kind == defineStmt && n.anc.anc.kind == constDecl && n.anc.nright == 0 {
@@ -758,10 +759,10 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			default:
 				kind = ifStmt3
 			}
-			st.push(addChild(&root, anc, pos, kind, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, kind, aNop), nod)
 
 		case *ast.ImportSpec:
-			st.push(addChild(&root, anc, pos, importSpec, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, importSpec, aNop), nod)
 
 		case *ast.IncDecStmt:
 			var act action
@@ -771,85 +772,85 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case token.DEC:
 				act = aDec
 			}
-			st.push(addChild(&root, anc, pos, incDecStmt, act), nod)
+			st.push(addChild(&root, anc, pos, end, incDecStmt, act), nod)
 
 		case *ast.IndexExpr:
-			st.push(addChild(&root, anc, pos, indexExpr, aGetIndex), nod)
+			st.push(addChild(&root, anc, pos, end, indexExpr, aGetIndex), nod)
 
 		case *ast.InterfaceType:
-			st.push(addChild(&root, anc, pos, interfaceType, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, interfaceType, aNop), nod)
 
 		case *ast.KeyValueExpr:
-			st.push(addChild(&root, anc, pos, keyValueExpr, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, keyValueExpr, aNop), nod)
 
 		case *ast.LabeledStmt:
-			st.push(addChild(&root, anc, pos, labeledStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, labeledStmt, aNop), nod)
 
 		case *ast.MapType:
-			st.push(addChild(&root, anc, pos, mapType, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, mapType, aNop), nod)
 
 		case *ast.ParenExpr:
-			st.push(addChild(&root, anc, pos, parenExpr, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, parenExpr, aNop), nod)
 
 		case *ast.RangeStmt:
 			// Insert a missing ForRangeStmt for AST correctness
-			n := addChild(&root, anc, pos, forRangeStmt, aNop)
-			r := addChild(&root, astNode{n, nod}, pos, rangeStmt, aRange)
+			n := addChild(&root, anc, pos, end, forRangeStmt, aNop)
+			r := addChild(&root, astNode{n, nod}, pos, end, rangeStmt, aRange)
 			st.push(r, nod)
 			if a.Key == nil {
 				// range not in an assign expression: insert a "_" key variable to store iteration index
-				k := addChild(&root, astNode{r, nod}, pos, identExpr, aNop)
+				k := addChild(&root, astNode{r, nod}, pos, end, identExpr, aNop)
 				k.ident = "_"
 			}
 
 		case *ast.ReturnStmt:
-			st.push(addChild(&root, anc, pos, returnStmt, aReturn), nod)
+			st.push(addChild(&root, anc, pos, end, returnStmt, aReturn), nod)
 
 		case *ast.SelectStmt:
-			st.push(addChild(&root, anc, pos, selectStmt, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, selectStmt, aNop), nod)
 
 		case *ast.SelectorExpr:
-			st.push(addChild(&root, anc, pos, selectorExpr, aGetIndex), nod)
+			st.push(addChild(&root, anc, pos, end, selectorExpr, aGetIndex), nod)
 
 		case *ast.SendStmt:
-			st.push(addChild(&root, anc, pos, sendStmt, aSend), nod)
+			st.push(addChild(&root, anc, pos, end, sendStmt, aSend), nod)
 
 		case *ast.SliceExpr:
 			if a.Low == nil {
-				st.push(addChild(&root, anc, pos, sliceExpr, aSlice0), nod)
+				st.push(addChild(&root, anc, pos, end, sliceExpr, aSlice0), nod)
 			} else {
-				st.push(addChild(&root, anc, pos, sliceExpr, aSlice), nod)
+				st.push(addChild(&root, anc, pos, end, sliceExpr, aSlice), nod)
 			}
 
 		case *ast.StarExpr:
-			st.push(addChild(&root, anc, pos, starExpr, aStar), nod)
+			st.push(addChild(&root, anc, pos, end, starExpr, aStar), nod)
 
 		case *ast.StructType:
-			st.push(addChild(&root, anc, pos, structType, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, structType, aNop), nod)
 
 		case *ast.SwitchStmt:
 			if a.Tag == nil {
-				st.push(addChild(&root, anc, pos, switchIfStmt, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, switchIfStmt, aNop), nod)
 			} else {
-				st.push(addChild(&root, anc, pos, switchStmt, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, switchStmt, aNop), nod)
 			}
 
 		case *ast.TypeAssertExpr:
-			st.push(addChild(&root, anc, pos, typeAssertExpr, aTypeAssert), nod)
+			st.push(addChild(&root, anc, pos, end, typeAssertExpr, aTypeAssert), nod)
 
 		case *ast.TypeSpec:
 			if a.Assign.IsValid() {
-				st.push(addChild(&root, anc, pos, typeSpecAssign, aNop), nod)
+				st.push(addChild(&root, anc, pos, end, typeSpecAssign, aNop), nod)
 				break
 			}
-			st.push(addChild(&root, anc, pos, typeSpec, aNop), nod)
+			st.push(addChild(&root, anc, pos, end, typeSpec, aNop), nod)
 
 		case *ast.TypeSwitchStmt:
-			n := addChild(&root, anc, pos, typeSwitch, aNop)
+			n := addChild(&root, anc, pos, end, typeSwitch, aNop)
 			st.push(n, nod)
 			if a.Init == nil {
 				// add an empty init node to disambiguate AST
-				addChild(&root, astNode{n, nil}, pos, fieldList, aNop)
+				addChild(&root, astNode{n, nil}, pos, end, fieldList, aNop)
 			}
 
 		case *ast.UnaryExpr:
@@ -870,7 +871,7 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case token.XOR:
 				act = aBitNot
 			}
-			st.push(addChild(&root, anc, pos, kind, act), nod)
+			st.push(addChild(&root, anc, pos, end, kind, act), nod)
 
 		case *ast.ValueSpec:
 			kind := valueSpec
@@ -897,7 +898,7 @@ func (interp *Interpreter) ast(f ast.Node) (string, *node, error) {
 			case anc.node.kind == varDecl && anc.node.anc.kind != fileStmt:
 				kind, act = defineStmt, aAssign
 			}
-			n := addChild(&root, anc, pos, kind, act)
+			n := addChild(&root, anc, pos, end, kind, act)
 			n.nleft = len(a.Names)
 			n.nright = len(a.Values)
 			st.push(n, nod)
