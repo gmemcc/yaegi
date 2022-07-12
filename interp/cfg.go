@@ -353,7 +353,7 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 						continue
 					}
 					if c.typ, err = nodeType(interp, sc, c); err != nil {
-						return false
+						continue
 					}
 				}
 			}

@@ -2548,9 +2548,18 @@ func arrayLit(n *node) {
 			a, _ = n.typ.zero()
 		}
 		for i, v := range values {
-			a.Index(index[i]).Set(v(f))
+			l := a.Index(index[i])
+			r := v(f)
+			err := rconvAndSet(l, r)
+			if err != nil {
+				panic(n.runErrorf("failed to convert %s to %s", r.Type(), l.Type()))
+			}
 		}
-		value(f).Set(a)
+		vleft := value(f)
+		err := rconvAndSet(vleft, a)
+		if err != nil {
+			panic(n.runErrorf("failed to convert %s to %s", a.Type(), vleft.Type()))
+		}
 		return next
 	}
 }

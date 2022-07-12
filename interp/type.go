@@ -826,6 +826,10 @@ func nodeType2(interp *Interpreter, sc *scope, n *node, seen []*node) (t *itype,
 			} else {
 				err = n.cfgErrorf("undefined selector %s.%s", lt.path, name)
 			}
+		case mapT:
+			t = lt.val
+		case interfaceT:
+			t = lt
 		case srcPkgT:
 			pkg := interp.srcPkg[lt.path]
 			if s, ok := pkg[name]; ok {

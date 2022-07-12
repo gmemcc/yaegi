@@ -39,7 +39,7 @@ func (c *cfgError) Error() string {
 	return fmt.Sprintf("%s %s", posString, c.reason)
 }
 
-func (n *node) cfgErrorf(format string, a ...interface{}) *cfgError {
+func (n node) cfgErrorf(format string, a ...interface{}) *cfgError {
 	pos := n.interp.fset.Position(n.pos)
 	end := n.interp.fset.Position(n.end)
 	return &cfgError{pos, end, fmt.Sprintf(format, a...)}
