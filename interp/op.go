@@ -4079,6 +4079,37 @@ func greater(n *node) {
 				}
 			}
 		}
+	default:
+		v0 := genValue(c0)
+		v1 := genValue(c1)
+		if n.fnext != nil {
+			fnext := getExec(n.fnext)
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, ">")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				if v {
+					dest(f).SetBool(true)
+					return tnext
+				}
+				dest(f).SetBool(false)
+				return fnext
+			}
+		} else {
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, ">")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				dest(f).SetBool(v)
+				return tnext
+			}
+		}
 	}
 }
 
@@ -4405,6 +4436,37 @@ func greaterEqual(n *node) {
 					dest(f).SetBool(s0 >= s1)
 					return tnext
 				}
+			}
+		}
+	default:
+		v0 := genValue(c0)
+		v1 := genValue(c1)
+		if n.fnext != nil {
+			fnext := getExec(n.fnext)
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, ">=")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				if v {
+					dest(f).SetBool(true)
+					return tnext
+				}
+				dest(f).SetBool(false)
+				return fnext
+			}
+		} else {
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, ">=")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				dest(f).SetBool(v)
+				return tnext
 			}
 		}
 	}
@@ -4735,6 +4797,37 @@ func lower(n *node) {
 				}
 			}
 		}
+	default:
+		v0 := genValue(c0)
+		v1 := genValue(c1)
+		if n.fnext != nil {
+			fnext := getExec(n.fnext)
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, "<")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				if v {
+					dest(f).SetBool(true)
+					return tnext
+				}
+				dest(f).SetBool(false)
+				return fnext
+			}
+		} else {
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, "<")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				dest(f).SetBool(v)
+				return tnext
+			}
+		}
 	}
 }
 
@@ -5061,6 +5154,37 @@ func lowerEqual(n *node) {
 					dest(f).SetBool(s0 <= s1)
 					return tnext
 				}
+			}
+		}
+	default:
+		v0 := genValue(c0)
+		v1 := genValue(c1)
+		if n.fnext != nil {
+			fnext := getExec(n.fnext)
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, "<=")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				if v {
+					dest(f).SetBool(true)
+					return tnext
+				}
+				dest(f).SetBool(false)
+				return fnext
+			}
+		} else {
+			n.exec = func(f *frame) bltn {
+				val0 := v0(f)
+				val1 := v1(f)
+				v, e := rcompare(val0, val1, "<=")
+				if e != nil {
+					panic(n.runErrorf(e.Error()))
+				}
+				dest(f).SetBool(v)
+				return tnext
 			}
 		}
 	}

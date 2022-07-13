@@ -381,3 +381,124 @@ func rconvToBool(val reflect.Value) bool {
 	}
 	return cast.ToBool(val.Interface())
 }
+
+func rcompare(val0, val1 reflect.Value, op string) (value bool, err error) {
+	if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
+		value, err = compareString(rconvToString(val0), rconvToString(val1), op)
+	} else {
+		val0 = rconvNumber(val0)
+		val1 = rconvNumber(val1)
+		typ0 := val0.Type()
+		typ1 := val1.Type()
+		if isNumber(typ0) && isNumber(typ1) {
+			switch {
+			case isUint(typ0):
+				switch {
+				case isUint(typ1):
+					value, err = compareUint(val0.Uint(), val1.Uint(), op)
+				case isInt(typ1):
+					value, err = compareUint(val0.Uint(), uint64(val1.Int()), op)
+				case isFloat(typ1):
+					value, err = compareUint(val0.Uint(), uint64(val1.Float()), op)
+				}
+			case isInt(typ0):
+				switch {
+				case isUint(typ1):
+					value, err = compareInt(val0.Int(), int64(val1.Uint()), op)
+				case isInt(typ1):
+					value, err = compareInt(val0.Int(), val1.Int(), op)
+				case isFloat(typ1):
+					value, err = compareInt(val0.Int(), int64(val1.Float()), op)
+				}
+			case isFloat(typ0):
+				switch {
+				case isUint(typ1):
+					value, err = compareFloat(val0.Float(), float64(val1.Uint()), op)
+				case isInt(typ1):
+					value, err = compareFloat(val0.Float(), float64(val1.Int()), op)
+				case isFloat(typ1):
+					value, err = compareFloat(val0.Float(), float64(val1.Float()), op)
+				}
+			}
+		} else {
+			err = fmt.Errorf("type %s doesn't support %s operator", typ0.String(), op)
+		}
+	}
+	return
+}
+
+func compareString(v0 string, v1 string, op string) (bool, error) {
+	switch op {
+	case "==":
+		return v0 == v1, nil
+	case ">":
+		return v0 > v1, nil
+	case ">=":
+		return v0 >= v1, nil
+	case "<":
+		return v0 < v1, nil
+	case "<=":
+		return v0 <= v1, nil
+	case "!=":
+		return v0 != v1, nil
+	default:
+		return false, fmt.Errorf("unknown comparison operator %s")
+	}
+}
+
+func compareInt(v0 int64, v1 int64, op string) (bool, error) {
+	switch op {
+	case "==":
+		return v0 == v1, nil
+	case ">":
+		return v0 > v1, nil
+	case ">=":
+		return v0 >= v1, nil
+	case "<":
+		return v0 < v1, nil
+	case "<=":
+		return v0 <= v1, nil
+	case "!=":
+		return v0 != v1, nil
+	default:
+		return false, fmt.Errorf("unknown comparison operator %s")
+	}
+}
+
+func compareUint(v0 uint64, v1 uint64, op string) (bool, error) {
+	switch op {
+	case "==":
+		return v0 == v1, nil
+	case ">":
+		return v0 > v1, nil
+	case ">=":
+		return v0 >= v1, nil
+	case "<":
+		return v0 < v1, nil
+	case "<=":
+		return v0 <= v1, nil
+	case "!=":
+		return v0 != v1, nil
+	default:
+		return false, fmt.Errorf("unknown comparison operator %s")
+	}
+}
+
+func compareFloat(v0 float64, v1 float64, op string) (bool, error) {
+	switch op {
+	case "==":
+		return v0 == v1, nil
+	case ">":
+		return v0 > v1, nil
+	case ">=":
+		return v0 >= v1, nil
+	case "<":
+		return v0 < v1, nil
+	case "<=":
+		return v0 <= v1, nil
+	case "!=":
+		return v0 != v1, nil
+	default:
+		return false, fmt.Errorf("unknown comparison operator %s")
+	}
+}

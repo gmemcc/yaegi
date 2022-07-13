@@ -1194,6 +1194,38 @@ func {{$name}}(n *node) {
 				}
 			}
 		}
+	{{- else}}
+		default:
+			v0 := genValue(c0)
+			v1 := genValue(c1)
+			if n.fnext != nil {
+				fnext := getExec(n.fnext)
+				n.exec = func(f *frame) bltn {
+					val0 := v0(f)
+					val1 := v1(f)
+					v, e := rcompare(val0, val1, "{{$op.Name}}")
+					if e != nil {
+						panic(n.runErrorf(e.Error()))
+					}
+					if v {
+						dest(f).SetBool(true)
+						return tnext
+					}
+					dest(f).SetBool(false)
+					return fnext
+				}
+			} else {
+				n.exec = func(f *frame) bltn {
+					val0 := v0(f)
+					val1 := v1(f)
+					v, e := rcompare(val0, val1, "{{$op.Name}}")
+					if e != nil {
+						panic(n.runErrorf(e.Error()))
+					}
+					dest(f).SetBool(v)
+					return tnext
+				}
+			}
 	{{- end}}
 	}
 }
