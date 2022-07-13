@@ -38,7 +38,7 @@ func {{$name}}(n *node) {
 			val1 := v1(f)
 			var value reflect.Value
 			{{- if $op.Str}}
-			if reflect.Indirect(val0).Type().Kind() == reflect.String {
+			if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
 				value = reflect.ValueOf(rconvToString(val0) + rconvToString(val1))
 			} else {
 			{{- end}}
@@ -89,7 +89,7 @@ func {{$name}}(n *node) {
 					{{- end}}
 					}
 				} else {
-					panic("only numbers support {{$op.Name}} operator")
+					panic(n.runErrorf("only numbers support {{$op.Name}} operator"))
 				}
 			{{- if $op.Str}}			
 			}
@@ -551,7 +551,7 @@ func {{$name}}Const(n *node) {
 
 	{{- if $op.Bool}}
 	if isConst {
-		v := constant.UnaryOp(token.{{tokenFromName $name}}, vConstantValue(v0), 0)
+		v := constant.UnaryOp(token.{{tokenFromName $name}}, rconvConstBool(vConstantValue(v0)), 0)
 		n.rval.Set(reflect.ValueOf(v))
 	} else {
 		n.rval.SetBool({{$op.Name}} v0.Bool())

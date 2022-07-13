@@ -26,7 +26,7 @@ func add(n *node) {
 			val0 := v0(f)
 			val1 := v1(f)
 			var value reflect.Value
-			if reflect.Indirect(val0).Type().Kind() == reflect.String {
+			if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
 				value = reflect.ValueOf(rconvToString(val0) + rconvToString(val1))
 			} else {
 				val0 = rconvNumber(val0)
@@ -64,7 +64,7 @@ func add(n *node) {
 						}
 					}
 				} else {
-					panic("only numbers support + operator")
+					panic(n.runErrorf("only numbers support + operator"))
 				}
 			}
 			v, _ := rconv(value, typ)
@@ -294,7 +294,7 @@ func and(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support & operator")
+				panic(n.runErrorf("only numbers support & operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -448,7 +448,7 @@ func andNot(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support &^ operator")
+				panic(n.runErrorf("only numbers support &^ operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -602,7 +602,7 @@ func mul(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support * operator")
+				panic(n.runErrorf("only numbers support * operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -828,7 +828,7 @@ func or(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support | operator")
+				panic(n.runErrorf("only numbers support | operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -982,7 +982,7 @@ func quo(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support / operator")
+				panic(n.runErrorf("only numbers support / operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -1217,7 +1217,7 @@ func rem(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support % operator")
+				panic(n.runErrorf("only numbers support % operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -1371,7 +1371,7 @@ func shl(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support << operator")
+				panic(n.runErrorf("only numbers support << operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -1523,7 +1523,7 @@ func shr(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support >> operator")
+				panic(n.runErrorf("only numbers support >> operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -1675,7 +1675,7 @@ func sub(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support - operator")
+				panic(n.runErrorf("only numbers support - operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -1901,7 +1901,7 @@ func xor(n *node) {
 					}
 				}
 			} else {
-				panic("only numbers support ^ operator")
+				panic(n.runErrorf("only numbers support ^ operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
