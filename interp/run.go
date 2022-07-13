@@ -2340,7 +2340,6 @@ func land(n *node) {
 	value1 := genValue(n.child[1])
 	tnext := getExec(n.tnext)
 	dest := genValue(n)
-	typ := n.typ.concrete().TypeOf()
 	isInterface := n.typ.TypeOf().Kind() == reflect.Interface
 
 	if n.fnext != nil {
@@ -2357,7 +2356,7 @@ func land(n *node) {
 	}
 	if isInterface {
 		n.exec = func(f *frame) bltn {
-			dest(f).Set(reflect.ValueOf(value0(f).Bool() && value1(f).Bool()).Convert(typ))
+			rconvAndSet(dest(f), reflect.ValueOf(rconvToBool(value0(f)) && rconvToBool(value1(f))))
 			return tnext
 		}
 		return
@@ -2373,7 +2372,6 @@ func lor(n *node) {
 	value1 := genValue(n.child[1])
 	tnext := getExec(n.tnext)
 	dest := genValue(n)
-	typ := n.typ.concrete().TypeOf()
 	isInterface := n.typ.TypeOf().Kind() == reflect.Interface
 
 	if n.fnext != nil {
@@ -2390,7 +2388,7 @@ func lor(n *node) {
 	}
 	if isInterface {
 		n.exec = func(f *frame) bltn {
-			dest(f).Set(reflect.ValueOf(value0(f).Bool() || value1(f).Bool()).Convert(typ))
+			rconvAndSet(dest(f), reflect.ValueOf(rconvToBool(value0(f)) || rconvToBool(value1(f))))
 			return tnext
 		}
 		return
