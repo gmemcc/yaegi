@@ -668,6 +668,10 @@ func assign(n *node) {
 		if isMapEntry(dest) {
 			if isInterfaceSrc(dest.child[1].typ) { // key
 				ivalue[i] = genValueInterface(dest.child[1])
+			} else if dest.child[1].kind == identExpr {
+				ivalue[i] = func(f *frame) reflect.Value {
+					return reflect.ValueOf(dest.child[1].ident)
+				}
 			} else {
 				ivalue[i] = genValue(dest.child[1])
 			}
@@ -705,6 +709,14 @@ func assign(n *node) {
 				err := rconvAndSet(vleft, vright)
 				if err != nil {
 					panic(n.runErrorf("failed to convert %s to %s", vright.Type(), vleft.Type()))
+				}
+				if n.child[0].kind == selectorExpr {
+					left := n.child[0].child[0]
+					right := n.child[0].child[1]
+					lval := rconvToConcrete(valueGenerator(left, left.findex)(f))
+					if lval.Kind() == reflect.Map {
+						lval.SetMapIndex(reflect.ValueOf(right.ident), vleft)
+					}
 				}
 				return next
 			}

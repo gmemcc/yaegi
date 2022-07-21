@@ -2070,6 +2070,9 @@ func isArray(t *itype) bool {
 }
 
 func isInterfaceSrc(t *itype) bool {
+	if t == nil {
+		return false
+	}
 	return t.cat == interfaceT || (t.cat == aliasT && isInterfaceSrc(t.val))
 }
 
