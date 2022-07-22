@@ -668,7 +668,7 @@ func assign(n *node) {
 		if isMapEntry(dest) {
 			if isInterfaceSrc(dest.child[1].typ) { // key
 				ivalue[i] = genValueInterface(dest.child[1])
-			} else if dest.child[1].kind == identExpr {
+			} else if dest.child[1].kind == identExpr && dest.kind == selectorExpr {
 				ivalue[i] = func(f *frame) reflect.Value {
 					return reflect.ValueOf(dest.child[1].ident)
 				}
