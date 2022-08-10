@@ -179,12 +179,16 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			return src, errors.New(fmt.Sprintf(""))
 		}
 	case reflect.Map:
-		indirect := reflect.Indirect(src)
+		indirect := rconvToConcrete(reflect.Indirect(src))
 		kind := indirect.Kind()
 		switch kind {
 		case reflect.String:
 			castedPtrValue := reflect.New(expectedType)
-			err := json.Unmarshal([]byte(indirect.String()), castedPtrValue.Interface())
+			str := indirect.String()
+			if str == "" {
+				return castedPtrValue.Elem(), nil
+			}
+			err := json.Unmarshal([]byte(str), castedPtrValue.Interface())
 			if err == nil {
 				return castedPtrValue.Elem(), nil
 			} else {
@@ -192,6 +196,8 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			}
 		case reflect.Map:
 			break
+		case reflect.Invalid:
+			return reflect.Zero(expectedType), nil
 		default:
 			return src, nil
 		}
