@@ -1069,6 +1069,9 @@ func (check typecheck) convertUntyped(n *node, typ *itype) error {
 	case isArray(typ) || isMap(typ) || isChan(typ) || isFunc(typ) || isPtr(typ):
 		// TODO(nick): above we are acting on itype, but really it is an rtype check. This is not clear which type
 		// 		 	   plain we are in. Fix this later.
+		if (isArray(typ) || isMap(typ)) && isString(n.typ.rtype) {
+			return nil
+		}
 		if !n.typ.isNil() {
 			return convErr
 		}

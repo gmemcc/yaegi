@@ -179,7 +179,20 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			return src, errors.New(fmt.Sprintf(""))
 		}
 	case reflect.Map:
-		if srcType.Kind() != reflect.Map {
+		indirect := reflect.Indirect(src)
+		kind := indirect.Kind()
+		switch kind {
+		case reflect.String:
+			castedPtrValue := reflect.New(expectedType)
+			err := json.Unmarshal([]byte(indirect.String()), castedPtrValue.Interface())
+			if err == nil {
+				return castedPtrValue.Elem(), nil
+			} else {
+				return src, err
+			}
+		case reflect.Map:
+			break
+		default:
 			return src, nil
 		}
 		ktype := expectedType.Key()
@@ -499,6 +512,6 @@ func compareFloat(v0 float64, v1 float64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s")
+		return false, fmt.Errorf("unknown comparison operator %s", op)
 	}
 }
