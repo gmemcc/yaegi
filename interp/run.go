@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/spf13/cast"
 	"go/constant"
+	"go/token"
 	"reflect"
 	"regexp"
 	"strings"
@@ -710,12 +711,25 @@ func assign(n *node) {
 				if err != nil {
 					panic(n.runErrorf("failed to convert %s to %s", vright.Type(), vleft.Type()))
 				}
-				if n.child[0].kind == selectorExpr {
+				if n.child[0].kind == selectorExpr || n.child[0].kind == indexExpr {
 					left := n.child[0].child[0]
 					right := n.child[0].child[1]
 					lval := rconvToConcrete(valueGenerator(left, left.findex)(f))
 					if lval.Kind() == reflect.Map {
-						lval.SetMapIndex(reflect.ValueOf(right.ident), vleft)
+						var key reflect.Value
+						switch right.kind {
+						case basicLit:
+							k := constant.StringVal(constant.MakeFromLiteral(right.ident, token.STRING, 0))
+							key = reflect.ValueOf(k)
+						case identExpr:
+							switch n.child[0].kind {
+							case selectorExpr:
+								key = reflect.ValueOf(right.ident)
+							case indexExpr:
+								key = genValue(right)(f)
+							}
+						}
+						lval.SetMapIndex(key, vright)
 					}
 				}
 				return next
@@ -1839,9 +1853,11 @@ func getIndexGeneric(n *node) {
 	tnext := getExec(n.tnext)
 	value0 := genValue(n.child[0])
 	var value1 func(*frame) reflect.Value
-	if n.child[1].kind == identExpr {
+	if n.child[1].kind == identExpr && n.kind == selectorExpr {
 		name := n.child[1].ident
-		value1 = func(f *frame) reflect.Value { return reflect.ValueOf(name) }
+		value1 = func(f *frame) reflect.Value {
+			return reflect.ValueOf(name)
+		}
 	} else {
 		value1 = genValue(n.child[1])
 	}

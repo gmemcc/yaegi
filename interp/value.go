@@ -183,7 +183,9 @@ func genValue(n *node) func(*frame) reflect.Value {
 		if !v.IsValid() {
 			v = reflect.New(interf).Elem()
 		}
-		return func(f *frame) reflect.Value { return v }
+		return func(f *frame) reflect.Value {
+			return v
+		}
 	case funcDecl:
 		var v reflect.Value
 		if w, ok := n.val.(reflect.Value); ok {
