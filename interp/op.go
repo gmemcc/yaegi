@@ -1217,7 +1217,7 @@ func rem(n *node) {
 					}
 				}
 			} else {
-				panic(n.runErrorf("only numbers support % operator"))
+				panic(n.runErrorf("only numbers support %% operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)

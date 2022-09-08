@@ -25,6 +25,10 @@ var (
 	typeofError   = reflect.TypeOf((*error)(nil)).Elem()
 )
 
+type User struct {
+	Name string `json:"name"`
+}
+
 func TestRconv(t *testing.T) {
 	suint8 := []uint8{65, 66, 67, 68, 69}
 	dorconv(reflect.ValueOf(suint8), typeofString)
@@ -46,6 +50,9 @@ func TestRconv(t *testing.T) {
 	dorconv(reflect.ValueOf(iany), typeofBool)
 	iany = s200
 	dorconv(reflect.ValueOf(iany), typeofInt)
+
+	dorconv(reflect.ValueOf(User{Name: "Alex"}), reflect.TypeOf(map[string]interface{}{}))
+	dorconv(reflect.ValueOf(map[string]interface{}{"name": "Alex"}), reflect.TypeOf(User{}))
 }
 
 func dorconv(src reflect.Value, expectedType reflect.Type) {
@@ -53,5 +60,5 @@ func dorconv(src reflect.Value, expectedType reflect.Type) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%v %#v => %v %#v\n", src.Type().String(), src, result.Type().String(), result)
+	fmt.Printf("%v %#v => %v : %#v\n", src.Type().String(), src, result.Type().String(), result)
 }

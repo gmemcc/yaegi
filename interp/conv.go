@@ -176,6 +176,17 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			} else {
 				return src, err
 			}
+		case reflect.Map:
+			var bytes []byte
+			var err error
+			bytes, err = json.Marshal(indirect.Interface())
+			if err == nil {
+				err = json.Unmarshal(bytes, castedPtrValue.Interface())
+				if err == nil {
+					return castedPtrValue.Elem(), nil
+				}
+			}
+			return src, err
 		case reflect.Interface:
 			return indirect.Elem().Convert(expectedType), nil
 		default:
@@ -477,7 +488,7 @@ func compareString(v0 string, v1 string, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s")
+		return false, fmt.Errorf("unknown comparison operator %s", op)
 	}
 }
 
@@ -496,7 +507,7 @@ func compareInt(v0 int64, v1 int64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s")
+		return false, fmt.Errorf("unknown comparison operator %s", op)
 	}
 }
 
@@ -515,7 +526,7 @@ func compareUint(v0 uint64, v1 uint64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s")
+		return false, fmt.Errorf("unknown comparison operator %s", op)
 	}
 }
 
