@@ -145,6 +145,9 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			casted := fmt.Sprintf("%d", value)
 			return reflect.ValueOf(casted), nil
+		case reflect.Map:
+			bytes, err := json.Marshal(value)
+			return reflect.ValueOf(string(bytes)), err
 		default:
 			casted, err := cast.ToStringE(value)
 			if err == nil {
@@ -198,6 +201,19 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 			break
 		case reflect.Invalid:
 			return reflect.Zero(expectedType), nil
+		case reflect.Struct:
+			srcBytes, err := json.Marshal(src.Interface())
+			if err != nil {
+				return src, err
+			} else {
+				castedPtrValue := reflect.New(expectedType)
+				err := json.Unmarshal(srcBytes, castedPtrValue.Interface())
+				if err == nil {
+					return castedPtrValue.Elem(), nil
+				} else {
+					return src, err
+				}
+			}
 		default:
 			return src, nil
 		}
