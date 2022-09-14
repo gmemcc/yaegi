@@ -3286,7 +3286,8 @@ func _append(n *node) {
 		}
 	}
 
-	dest := genValueOutput(n, n.typ.rtype)
+	dtype := n.typ.rtype
+	dest := genValueOutput(n, dtype)
 	value := genValue(n.child[1])
 	next := getExec(n.tnext)
 
@@ -3316,7 +3317,12 @@ func _append(n *node) {
 		n.exec = func(f *frame) bltn {
 			sl := make([]reflect.Value, l)
 			for i, v := range values {
-				sl[i] = v(f)
+				sval := v(f)
+				s, err := rconv(sval, dtype.Elem())
+				if err != nil {
+					panic(n.runErrorf("failed to convert %s to %s", sval.Type(), dtype.Elem()))
+				}
+				sl[i] = s
 			}
 			dest(f).Set(reflect.Append(value(f), sl...))
 			return next
@@ -3335,7 +3341,12 @@ func _append(n *node) {
 		}
 
 		n.exec = func(f *frame) bltn {
-			dest(f).Set(reflect.Append(value(f), value0(f)))
+			sval := value0(f)
+			s, err := rconv(sval, dtype.Elem())
+			if err != nil {
+				panic(n.runErrorf("failed to convert %s to %s", sval.Type(), dtype.Elem()))
+			}
+			dest(f).Set(reflect.Append(value(f), s))
 			return next
 		}
 	}
@@ -3495,13 +3506,13 @@ func _len(n *node) {
 
 	if wantEmptyInterface(n) {
 		n.exec = func(f *frame) bltn {
-			dest(f).Set(reflect.ValueOf(value(f).Len()))
+			dest(f).Set(reflect.ValueOf(rconvToConcrete(value(f)).Len()))
 			return next
 		}
 		return
 	}
 	n.exec = func(f *frame) bltn {
-		dest(f).SetInt(int64(value(f).Len()))
+		dest(f).SetInt(int64(rconvToConcrete(value(f)).Len()))
 		return next
 	}
 }

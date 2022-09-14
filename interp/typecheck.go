@@ -778,7 +778,7 @@ func (check typecheck) builtin(name string, n *node, child []*node, ellipsis boo
 		typ := arrayDeref(params[0].Type())
 		ok := false
 		switch typ.TypeOf().Kind() {
-		case reflect.Array, reflect.Slice, reflect.Chan:
+		case reflect.Array, reflect.Slice, reflect.Chan, reflect.Interface:
 			ok = true
 		case reflect.String, reflect.Map:
 			ok = name == bltnLen
