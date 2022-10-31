@@ -1217,7 +1217,7 @@ func rem(n *node) {
 					}
 				}
 			} else {
-				panic(n.runErrorf("only numbers support %% operator"))
+				panic(n.runErrorf("only numbers support % operator"))
 			}
 			v, _ := rconv(value, typ)
 			dest(f).Set(v)
@@ -3244,7 +3244,7 @@ func equal(n *node) {
 				val1 := v1(f)
 				var err error
 				var typ0 reflect.Type
-				if val0.Kind() == reflect.Interface {
+				if val0.Kind() == reflect.Interface && val0.Elem().IsValid() {
 					typ0 = val0.Elem().Type()
 				} else {
 					typ0 = val0.Type()
@@ -5295,7 +5295,7 @@ func notEqual(n *node) {
 				val1 := v1(f)
 				var err error
 				var typ0 reflect.Type
-				if val0.Kind() == reflect.Interface {
+				if val0.Kind() == reflect.Interface && val0.Elem().IsValid() {
 					typ0 = val0.Elem().Type()
 				} else {
 					typ0 = val0.Type()
