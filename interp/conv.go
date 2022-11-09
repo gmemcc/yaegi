@@ -230,6 +230,9 @@ func rconv(src reflect.Value, expectedType reflect.Type) (reflect.Value, error) 
 		}
 		ktype := expectedType.Key()
 		vtype := expectedType.Elem()
+		if ktype == indirect.Type().Key() && vtype == indirect.Type().Elem() {
+			return indirect, nil
+		}
 		castedValue := reflect.MakeMapWithSize(expectedType, 0)
 		keys := src.MapKeys()
 		for i := 0; i < len(keys); i++ {
