@@ -2396,8 +2396,8 @@ func land(n *node) {
 }
 
 func lor(n *node) {
-	value0 := genValue(n.child[0])
-	value1 := genValue(n.child[1])
+	value0 := genValue0(n.child[0])
+	value1 := genValue0(n.child[1])
 	tnext := getExec(n.tnext)
 	dest := genValue(n)
 	isInterface := n.typ.TypeOf().Kind() == reflect.Interface

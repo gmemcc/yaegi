@@ -3,6 +3,7 @@ package interp
 import (
 	"github.com/spf13/cast"
 	"go/constant"
+	"go/token"
 	"reflect"
 )
 
@@ -14,13 +15,21 @@ const (
 func valueGenerator(n *node, i int) func(*frame) reflect.Value {
 	switch n.level {
 	case globalFrame:
-		return func(f *frame) reflect.Value { return valueOf(f.root.data, i) }
+		return func(f *frame) reflect.Value {
+			return valueOf(f.root.data, i)
+		}
 	case 0:
-		return func(f *frame) reflect.Value { return valueOf(f.data, i) }
+		return func(f *frame) reflect.Value {
+			return valueOf(f.data, i)
+		}
 	case 1:
-		return func(f *frame) reflect.Value { return valueOf(f.anc.data, i) }
+		return func(f *frame) reflect.Value {
+			return valueOf(f.anc.data, i)
+		}
 	case 2:
-		return func(f *frame) reflect.Value { return valueOf(f.anc.anc.data, i) }
+		return func(f *frame) reflect.Value {
+			return valueOf(f.anc.anc.data, i)
+		}
 	default:
 		return func(f *frame) reflect.Value {
 			for level := n.level; level > 0; level-- {
@@ -173,6 +182,48 @@ func genValueAs(n *node, t reflect.Type) func(*frame) reflect.Value {
 		}
 		return vc
 	}
+}
+
+func genValue0(n *node) func(*frame) reflect.Value {
+	if n.action == aGetIndex && (n.kind == indexExpr || n.kind == selectorExpr) {
+		left := n.child[0]
+		right := n.child[1]
+		return func(f *frame) reflect.Value {
+			lval := rconvToConcrete(valueGenerator(left, left.findex)(f))
+			switch lval.Kind() {
+			case reflect.Map:
+				var key reflect.Value
+				switch right.kind {
+				case basicLit:
+					k := constant.StringVal(constant.MakeFromLiteral(right.ident, token.STRING, 0))
+					key = reflect.ValueOf(k)
+				case identExpr:
+					if n.kind == selectorExpr {
+						key = reflect.ValueOf(right.ident)
+					} else {
+						key = valueGenerator(right, right.findex)(f)
+					}
+				}
+				return lval.MapIndex(key)
+			case reflect.Slice, reflect.Array:
+				var idx reflect.Value
+				switch right.kind {
+				case basicLit:
+					k, ok := constant.Int64Val(constant.MakeFromLiteral(right.ident, token.INT, 0))
+					if !ok {
+						panic(n.runErrorf("slice index must be number"))
+					}
+					idx = reflect.ValueOf(k)
+				case identExpr:
+					idx = valueGenerator(right, right.findex)(f)
+				}
+				return lval.Index(cast.ToInt(idx.Interface()))
+			default:
+				panic(n.runErrorf("aGetIndex not supported here"))
+			}
+		}
+	}
+	return genValue(n)
 }
 
 func genValue(n *node) func(*frame) reflect.Value {
