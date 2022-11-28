@@ -3,8 +3,8 @@ package clos1
 import (
 	"testing"
 
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
+	"github.com/gmemcc/yaegi/interp"
+	"github.com/gmemcc/yaegi/stdlib"
 )
 
 func TestFunctionCall(t *testing.T) {

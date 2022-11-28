@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/traefik/yaegi/interp"
+	"github.com/gmemcc/yaegi/interp"
 )
 
 func main() {

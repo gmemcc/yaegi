@@ -8,8 +8,8 @@ package srcimporter // import "go/internal/srcimporter"
 
 import (
 	"fmt"
-	exec "github.com/traefik/yaegi/internal/cmd/extract/execabs"
-	"github.com/traefik/yaegi/internal/cmd/extract/types"
+	exec "github.com/gmemcc/yaegi/internal/cmd/extract/execabs"
+	"github.com/gmemcc/yaegi/internal/cmd/extract/types"
 	"go/ast"
 	"go/build"
 	"go/parser"

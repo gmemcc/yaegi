@@ -1,4 +1,4 @@
-module github.com/traefik/yaegi
+module github.com/gmemcc/yaegi
 
 go 1.16
 
