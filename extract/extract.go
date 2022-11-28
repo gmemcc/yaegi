@@ -8,11 +8,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/traefik/yaegi/internal/cmd/extract/srcimporter"
+	"github.com/traefik/yaegi/internal/cmd/extract/types"
+	"go/build"
 	"go/constant"
 	"go/format"
-	"go/importer"
 	"go/token"
-	"go/types"
 	"io"
 	"math/big"
 	"os"
@@ -431,8 +432,9 @@ func (e *Extractor) Extract(pkgIdent, importPath string, rw io.Writer) (string, 
 	if err != nil {
 		return "", err
 	}
-
-	pkg, err := importer.ForCompiler(token.NewFileSet(), "source", nil).Import(pkgIdent)
+	fset := token.NewFileSet()
+	importer := srcimporter.New(&build.Default, fset, make(map[string]*types.Package))
+	pkg, err := importer.Import(pkgIdent, 0)
 	if err != nil {
 		return "", err
 	}
