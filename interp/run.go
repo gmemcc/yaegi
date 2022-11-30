@@ -2390,7 +2390,7 @@ func land(n *node) {
 		return
 	}
 	n.exec = func(f *frame) bltn {
-		dest(f).SetBool(value0(f).Bool() && value1(f).Bool())
+		rconvAndSet(dest(f), reflect.ValueOf(rconvToBool(value0(f)) && rconvToBool(value1(f))))
 		return tnext
 	}
 }
