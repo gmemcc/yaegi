@@ -438,6 +438,8 @@ func compare(val0, val1 interface{}, op string) (value bool, err error) {
 func rcompare(val0, val1 reflect.Value, op string) (value bool, err error) {
 	if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
 		value, err = compareString(rconvToString(val0), rconvToString(val1), op)
+	} else if val0.Kind() == reflect.Bool || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.Bool {
+		value, err = compareBool(rconvToBool(val0), rconvToBool(val1), op)
 	} else {
 		val0 = rconvNumber(val0)
 		val1 = rconvNumber(val1)
@@ -495,7 +497,18 @@ func compareString(v0 string, v1 string, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s", op)
+		return false, fmt.Errorf("unsupported comparison operator %s for string", op)
+	}
+}
+
+func compareBool(v0 bool, v1 bool, op string) (bool, error) {
+	switch op {
+	case "==":
+		return v0 == v1, nil
+	case "!=":
+		return v0 != v1, nil
+	default:
+		return false, fmt.Errorf("unsupported comparison operator %s for bool", op)
 	}
 }
 
@@ -514,7 +527,7 @@ func compareInt(v0 int64, v1 int64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s", op)
+		return false, fmt.Errorf("unsupported comparison operator %s for integer", op)
 	}
 }
 
@@ -533,7 +546,7 @@ func compareUint(v0 uint64, v1 uint64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s", op)
+		return false, fmt.Errorf("unsupported comparison operator %s for unsigned integer", op)
 	}
 }
 
@@ -552,6 +565,6 @@ func compareFloat(v0 float64, v1 float64, op string) (bool, error) {
 	case "!=":
 		return v0 != v1, nil
 	default:
-		return false, fmt.Errorf("unknown comparison operator %s", op)
+		return false, fmt.Errorf("unknown comparison operator %s for float", op)
 	}
 }
