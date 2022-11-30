@@ -3255,7 +3255,12 @@ func equal(n *node) {
 				}
 				i0 := val0.Interface()
 				i1 := val1.Interface()
-				if i0 == i1 {
+				x, err := compare(i0, i1, "==")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "=="))
+				}
+
+				if x {
 					dest(f).SetBool(true)
 					return tnext
 				}
@@ -3267,7 +3272,10 @@ func equal(n *node) {
 			n.exec = func(f *frame) bltn {
 				i0 := v0(f).Interface()
 				i1 := v1(f).Interface()
-				x := i0 == i1
+				x, err := compare(i0, i1, "==")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "=="))
+				}
 				dest(f).Set(reflect.ValueOf(x))
 				return tnext
 			}
@@ -5306,7 +5314,12 @@ func notEqual(n *node) {
 				}
 				i0 := val0.Interface()
 				i1 := val1.Interface()
-				if i0 != i1 {
+				x, err := compare(i0, i1, "!=")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "!="))
+				}
+
+				if x {
 					dest(f).SetBool(true)
 					return tnext
 				}
@@ -5318,7 +5331,10 @@ func notEqual(n *node) {
 			n.exec = func(f *frame) bltn {
 				i0 := v0(f).Interface()
 				i1 := v1(f).Interface()
-				x := i0 != i1
+				x, err := compare(i0, i1, "!=")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "!="))
+				}
 				dest(f).Set(reflect.ValueOf(x))
 				return tnext
 			}

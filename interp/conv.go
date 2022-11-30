@@ -431,6 +431,10 @@ func rconvToBool(val reflect.Value) bool {
 	return cast.ToBool(val.Interface())
 }
 
+func compare(val0, val1 interface{}, op string) (value bool, err error) {
+	return rcompare(reflect.ValueOf(val0), reflect.ValueOf(val1), op)
+}
+
 func rcompare(val0, val1 reflect.Value, op string) (value bool, err error) {
 	if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
 		value, err = compareString(rconvToString(val0), rconvToString(val1), op)

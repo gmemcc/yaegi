@@ -694,7 +694,12 @@ func {{$name}}(n *node) {
 				}
 				i0 := val0.Interface()
 				i1 := val1.Interface()
-				if i0 {{$op.Name}} i1 {
+				x, err := compare(i0, i1, "{{$op.Name}}")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "{{$op.Name}}"))
+				}
+
+				if x {
 					dest(f).SetBool(true)
 					return tnext
 				}
@@ -706,7 +711,10 @@ func {{$name}}(n *node) {
 			n.exec = func(f *frame) bltn {
 				i0 := v0(f).Interface()
 				i1 := v1(f).Interface()
-				x := i0 {{$op.Name}} i1
+				x, err := compare(i0, i1, "{{$op.Name}}")
+				if err != nil {
+					panic(n.runErrorf("operator %s not supported here", "{{$op.Name}}"))
+				}
 				dest(f).Set(reflect.ValueOf(x))
 				return tnext
 			}
