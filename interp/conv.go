@@ -417,6 +417,10 @@ func rconvConstBool(value constant.Value) constant.Value {
 	return constant.MakeBool(cast.ToBool(constToInterface(value)))
 }
 
+func rconvConstString(value constant.Value) constant.Value {
+	return constant.MakeString(cast.ToString(constToInterface(value)))
+}
+
 func rconvToString(val reflect.Value) string {
 	if !val.IsValid() {
 		return ""

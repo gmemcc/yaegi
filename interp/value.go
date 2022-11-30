@@ -563,6 +563,9 @@ func vFloat(v reflect.Value) (i float64) {
 
 func vString(v reflect.Value) (s string) {
 	if c := vConstantValue(v); c != nil {
+		if c.Kind() != constant.Unknown && c.Kind() != constant.String {
+			c = rconvConstString(c)
+		}
 		s = constant.StringVal(c)
 		return s
 	}
