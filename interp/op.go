@@ -3303,7 +3303,7 @@ func equal(n *node) {
 				fnext := getExec(n.fnext)
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					if s0 == s1 || c0Bool && cast.ToBool(s1) {
+					if s0 == s1 || c0Bool && c0.rval.Bool() == cast.ToBool(s1) {
 						dest(f).SetBool(true)
 						return tnext
 					}
@@ -3313,7 +3313,7 @@ func equal(n *node) {
 			} else {
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					dest(f).SetBool(s0 == s1)
+					dest(f).SetBool(s0 == s1 || c0Bool && c0.rval.Bool() == cast.ToBool(s1))
 					return tnext
 				}
 			}
@@ -5356,12 +5356,13 @@ func notEqual(n *node) {
 			}
 		case c0.rval.IsValid():
 			s0 := vString(c0.rval)
+			c0Bool := c0.rval.Kind() == reflect.Bool
 			v1 := genValueString(c1)
 			if n.fnext != nil {
 				fnext := getExec(n.fnext)
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					if s0 != s1 {
+					if s0 != s1 || c0Bool && c0.rval.Bool() != cast.ToBool(s1) {
 						dest(f).SetBool(true)
 						return tnext
 					}
@@ -5371,7 +5372,7 @@ func notEqual(n *node) {
 			} else {
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					dest(f).SetBool(s0 != s1)
+					dest(f).SetBool(s0 != s1 || c0Bool && c0.rval.Bool() != cast.ToBool(s1))
 					return tnext
 				}
 			}

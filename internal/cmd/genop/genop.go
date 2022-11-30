@@ -737,7 +737,7 @@ func {{$name}}(n *node) {
 			}
 		case c0.rval.IsValid():
 			s0 :=  vString(c0.rval)
-			{{- if eq $op.Name "=="}}
+			{{- if or (eq $op.Name "==" ) (eq $op.Name "!=") }}
 			c0Bool := c0.rval.Kind() == reflect.Bool
 			{{- end}}
 			v1 := genValueString(c1)
@@ -745,7 +745,7 @@ func {{$name}}(n *node) {
 				fnext := getExec(n.fnext)
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					if s0 {{$op.Name}} s1 {{if eq $op.Name "=="}}|| c0Bool && cast.ToBool(s1) {{end}}{
+					if s0 {{$op.Name}} s1 {{ if or (eq $op.Name "==" ) (eq $op.Name "!=") }}|| c0Bool && c0.rval.Bool() {{$op.Name}} cast.ToBool(s1) {{end}}{
 						dest(f).SetBool(true)
 						return tnext
 					}
@@ -755,7 +755,7 @@ func {{$name}}(n *node) {
 			} else {
 				n.exec = func(f *frame) bltn {
 					_, s1 := v1(f)
-					dest(f).SetBool(s0 {{$op.Name}} s1)
+					dest(f).SetBool(s0 {{$op.Name}} s1 {{ if or (eq $op.Name "==" ) (eq $op.Name "!=") }}|| c0Bool && c0.rval.Bool() {{$op.Name}} cast.ToBool(s1) {{end}} )
 					return tnext
 				}
 			}
