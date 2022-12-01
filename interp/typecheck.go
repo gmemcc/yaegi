@@ -746,8 +746,11 @@ func (check typecheck) builtin(name string, n *node, child []*node, ellipsis boo
 	case bltnAppend:
 		typ := params[0].Type()
 		t := typ.TypeOf()
-		if t == nil || t.Kind() != reflect.Slice {
+		if t == nil || (t.Kind() != reflect.Slice && t.Kind() != reflect.Interface) {
 			return params[0].nod.cfgErrorf("first argument to append must be slice; have %s", typ.id())
+		}
+		if t.Kind() == reflect.Interface {
+			return nil
 		}
 
 		if nparams == 1 {

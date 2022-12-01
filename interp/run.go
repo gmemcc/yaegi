@@ -3303,6 +3303,8 @@ func _append(n *node) {
 		values := make([]func(*frame) reflect.Value, l)
 		for i, arg := range args {
 			switch elem := n.typ.elem(); {
+			case elem == nil:
+				values[i] = genValue(arg)
 			case isInterfaceSrc(elem) && (!isEmptyInterface(elem) || len(arg.typ.method) > 0):
 				values[i] = genValueInterface(arg)
 			case isInterfaceBin(elem):
@@ -3316,20 +3318,34 @@ func _append(n *node) {
 
 		n.exec = func(f *frame) bltn {
 			sl := make([]reflect.Value, l)
+			dslice := value(f)
+			var deltype reflect.Type
+			if dtype.Kind() == reflect.Interface {
+				if dslice.Elem().Kind() == reflect.Slice {
+					deltype = dslice.Elem().Type().Elem()
+					dslice = dslice.Elem()
+				} else {
+					panic(n.runErrorf("%s expected to be a slice", n.child[1].ident))
+				}
+			} else {
+				deltype = dtype.Elem()
+			}
 			for i, v := range values {
 				sval := v(f)
-				s, err := rconv(sval, dtype.Elem())
+				s, err := rconv(sval, deltype)
 				if err != nil {
 					panic(n.runErrorf("failed to convert %s to %s", sval.Type(), dtype.Elem()))
 				}
 				sl[i] = s
 			}
-			dest(f).Set(reflect.Append(value(f), sl...))
+			dest(f).Set(reflect.Append(dslice, sl...))
 			return next
 		}
 	default:
 		var value0 func(*frame) reflect.Value
 		switch elem := n.typ.elem(); {
+		case elem == nil:
+			value0 = genValue(n.child[2])
 		case isInterfaceSrc(elem) && (!isEmptyInterface(elem) || len(n.child[2].typ.method) > 0):
 			value0 = genValueInterface(n.child[2])
 		case isInterfaceBin(elem):
@@ -3342,11 +3358,24 @@ func _append(n *node) {
 
 		n.exec = func(f *frame) bltn {
 			sval := value0(f)
-			s, err := rconv(sval, dtype.Elem())
+			dslice := value(f)
+			var deltype reflect.Type
+			if dtype.Kind() == reflect.Interface {
+				if dslice.Elem().Kind() == reflect.Slice {
+					deltype = dslice.Elem().Type().Elem()
+					dslice = dslice.Elem()
+				} else {
+					panic(n.runErrorf("%s expected to be a slice", n.child[1].ident))
+				}
+			} else {
+				deltype = dtype.Elem()
+			}
+
+			s, err := rconv(sval, deltype)
 			if err != nil {
 				panic(n.runErrorf("failed to convert %s to %s", sval.Type(), dtype.Elem()))
 			}
-			dest(f).Set(reflect.Append(value(f), s))
+			dest(f).Set(reflect.Append(dslice, s))
 			return next
 		}
 	}
