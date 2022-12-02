@@ -691,7 +691,11 @@ func assign(n *node) {
 			}
 		case i != nil:
 			n.exec = func(f *frame) bltn {
-				d(f).SetMapIndex(i(f), s(f))
+				dest := d(f)
+				if dest.IsNil() {
+					panic(n.runErrorf("assignment to entry in nil map"))
+				}
+				dest.SetMapIndex(i(f), s(f))
 				return next
 			}
 		case n.kind == defineStmt:
