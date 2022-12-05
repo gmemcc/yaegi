@@ -3231,8 +3231,14 @@ func _case(n *node) {
 			v0 := value(f)
 			for _, v := range values {
 				v1 := v(f)
-				if !v0.Type().AssignableTo(v1.Type()) {
-					v0 = v0.Convert(v1.Type())
+				v0Type := v0.Type()
+				v1Type := v1.Type()
+				if !v0Type.AssignableTo(v1Type) {
+					var err error
+					v0, err = rconv(v0, v1Type)
+					if err != nil {
+						panic(n.runErrorf("failed to convert %s to %s", v0Type, v1Type))
+					}
 				}
 				if v0.Interface() == v1.Interface() {
 					return tnext
