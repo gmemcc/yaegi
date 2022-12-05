@@ -704,7 +704,12 @@ func assign(n *node) {
 			n.exec = func(f *frame) bltn {
 				data := getFrame(f, l).data
 				data[ind] = reflect.New(data[ind].Type()).Elem()
-				data[ind].Set(s(f))
+				sval := s(f)
+				if sval.IsValid() {
+					data[ind].Set(sval)
+				} else {
+					panic(n.child[1].runErrorf("invalid value"))
+				}
 				return next
 			}
 		default:
