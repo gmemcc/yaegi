@@ -440,7 +440,15 @@ func compare(val0, val1 interface{}, op string) (value bool, err error) {
 }
 
 func rcompare(val0, val1 reflect.Value, op string) (value bool, err error) {
-	if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
+	if !val0.IsValid() || !val1.IsValid() {
+		if !val0.IsValid() && !val1.IsValid() && op == "==" {
+			return true, nil
+		} else if (val0.IsValid() || val1.IsValid()) && op == "!=" {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	} else if val0.Kind() == reflect.String || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.String {
 		value, err = compareString(rconvToString(val0), rconvToString(val1), op)
 	} else if val0.Kind() == reflect.Bool || (val0.Kind() == reflect.Interface || val0.Kind() == reflect.Ptr) && val0.Elem().Kind() == reflect.Bool {
 		value, err = compareBool(rconvToBool(val0), rconvToBool(val1), op)
