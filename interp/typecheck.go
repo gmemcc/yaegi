@@ -202,7 +202,7 @@ func (check typecheck) comparison(n *node) error {
 		if typ.isNil() {
 			typ = c1.typ
 		}
-		if typ.cat != interfaceT && !isNumber(typ.rtype) && !isString(typ.rtype) {
+		if !isInterface(typ) && !isNumber(typ.rtype) && !isString(typ.rtype) {
 			return n.cfgErrorf("invalid operation: operator %v not defined on %s", n.action, typ.id())
 		}
 	}
