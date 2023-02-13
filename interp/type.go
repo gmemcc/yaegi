@@ -2176,3 +2176,12 @@ func isNumber(t reflect.Type) bool {
 func isBoolean(t reflect.Type) bool       { return t != nil && t.Kind() == reflect.Bool }
 func isString(t reflect.Type) bool        { return t != nil && t.Kind() == reflect.String }
 func isConstantValue(t reflect.Type) bool { return t != nil && t.Implements(constVal) }
+
+func isNullable(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return true
+	default:
+		return false
+	}
+}

@@ -186,7 +186,9 @@ func (check typecheck) shift(n *node) error {
 func (check typecheck) comparison(n *node) error {
 	c0, c1 := n.child[0], n.child[1]
 
-	if !c0.typ.assignableTo(c1.typ) && !c1.typ.assignableTo(c0.typ) && !((isNumber(c0.typ.rtype) || isString(c0.typ.rtype)) && (isNumber(c1.typ.rtype) || isString(c1.typ.rtype))) {
+	if !(c0.typ.isNil() || c1.typ.isNil()) && !c0.typ.assignableTo(c1.typ) && !c1.typ.assignableTo(c0.typ) &&
+		!((isNumber(c0.typ.rtype) || isString(c0.typ.rtype) || isBoolean(c0.typ.rtype)) || isConstantValue(c0.typ.rtype) &&
+			(isNumber(c1.typ.rtype) || isString(c1.typ.rtype)) || isBoolean(c0.typ.rtype) || isConstantValue(c0.typ.rtype)) {
 		return n.cfgErrorf("invalid operation: mismatched types %s and %s", c0.typ.id(), c1.typ.id())
 	}
 
@@ -1036,6 +1038,9 @@ func (check typecheck) convertUntyped(n *node, typ *itype) error {
 
 	ntyp, ttyp := n.typ.TypeOf(), typ.TypeOf()
 	if typ.untyped {
+		if ttyp == nil || ntyp == nil {
+			return nil
+		}
 		// Both n and target are untyped.
 		nkind, tkind := ntyp.Kind(), ttyp.Kind()
 		if isNumber(ntyp) && isNumber(ttyp) {
@@ -1054,8 +1059,10 @@ func (check typecheck) convertUntyped(n *node, typ *itype) error {
 		err  error
 	)
 	switch {
-	case typ.isNil() && n.typ.isNil():
-		n.typ = typ
+	case typ.isNil():
+		if n.typ.isNil() {
+			n.typ = typ
+		}
 		return nil
 	case isNumber(ttyp) || isString(ttyp) || isBoolean(ttyp):
 		ityp = typ

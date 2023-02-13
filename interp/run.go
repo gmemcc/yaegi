@@ -4057,11 +4057,15 @@ func slice0(n *node) {
 
 func isNil(n *node) {
 	var value func(*frame) reflect.Value
-	c0 := n.child[0]
-	if isFuncSrc(c0.typ) {
-		value = genValueAsFunctionWrapper(c0)
+	c := n.child[0]
+	nilSym := n.interp.universe.sym[nilIdent]
+	if c.sym == nilSym {
+		c = n.child[1]
+	}
+	if isFuncSrc(c.typ) {
+		value = genValueAsFunctionWrapper(c)
 	} else {
-		value = genValue(c0)
+		value = genValue(c)
 	}
 	typ := n.typ.concrete().TypeOf()
 	isInterface := n.typ.TypeOf().Kind() == reflect.Interface
@@ -4069,16 +4073,16 @@ func isNil(n *node) {
 	dest := genValue(n)
 
 	if n.fnext == nil {
-		if !isInterfaceSrc(c0.typ) {
+		if !isInterfaceSrc(c.typ) {
 			if isInterface {
 				n.exec = func(f *frame) bltn {
-					dest(f).Set(reflect.ValueOf(value(f).IsNil()).Convert(typ))
+					dest(f).Set(reflect.ValueOf(rconvToNil(value(f))).Convert(typ))
 					return tnext
 				}
 				return
 			}
 			n.exec = func(f *frame) bltn {
-				dest(f).SetBool(value(f).IsNil())
+				dest(f).SetBool(rconvToNil(value(f)))
 				return tnext
 			}
 			return
@@ -4088,9 +4092,9 @@ func isNil(n *node) {
 				v := value(f)
 				var r bool
 				if vi, ok := v.Interface().(valueInterface); ok {
-					r = (vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT)
+					r = vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT
 				} else {
-					r = v.IsNil()
+					r = rconvToNil(v)
 				}
 				dest(f).Set(reflect.ValueOf(r).Convert(typ))
 				return tnext
@@ -4101,9 +4105,9 @@ func isNil(n *node) {
 			v := value(f)
 			var r bool
 			if vi, ok := v.Interface().(valueInterface); ok {
-				r = (vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT)
+				r = vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT
 			} else {
-				r = v.IsNil()
+				r = rconvToNil(v)
 			}
 			dest(f).SetBool(r)
 			return tnext
@@ -4113,9 +4117,10 @@ func isNil(n *node) {
 
 	fnext := getExec(n.fnext)
 
-	if !isInterfaceSrc(c0.typ) {
+	if !isInterfaceSrc(c.typ) {
 		n.exec = func(f *frame) bltn {
-			if value(f).IsNil() {
+			v := value(f)
+			if rconvToNil(v) {
 				dest(f).SetBool(true)
 				return tnext
 			}
@@ -4135,7 +4140,7 @@ func isNil(n *node) {
 			dest(f).SetBool(false)
 			return fnext
 		}
-		if v.IsNil() {
+		if rconvToNil(v) {
 			dest(f).SetBool(true)
 			return tnext
 		}
@@ -4146,11 +4151,16 @@ func isNil(n *node) {
 
 func isNotNil(n *node) {
 	var value func(*frame) reflect.Value
-	c0 := n.child[0]
-	if isFuncSrc(c0.typ) {
-		value = genValueAsFunctionWrapper(c0)
+	c := n.child[0]
+	nilSym := n.interp.universe.sym[nilIdent]
+	if c.sym == nilSym {
+		c = n.child[1]
+	}
+
+	if isFuncSrc(c.typ) {
+		value = genValueAsFunctionWrapper(c)
 	} else {
-		value = genValue(c0)
+		value = genValue(c)
 	}
 	typ := n.typ.concrete().TypeOf()
 	isInterface := n.typ.TypeOf().Kind() == reflect.Interface
@@ -4158,16 +4168,16 @@ func isNotNil(n *node) {
 	dest := genValue(n)
 
 	if n.fnext == nil {
-		if isInterfaceSrc(c0.typ) {
+		if isInterfaceSrc(c.typ) {
 			if isInterface {
 				n.exec = func(f *frame) bltn {
-					dest(f).Set(reflect.ValueOf(!value(f).IsNil()).Convert(typ))
+					dest(f).Set(reflect.ValueOf(!rconvToNil(value(f))).Convert(typ))
 					return tnext
 				}
 				return
 			}
 			n.exec = func(f *frame) bltn {
-				dest(f).SetBool(!value(f).IsNil())
+				dest(f).SetBool(!rconvToNil(value(f)))
 				return tnext
 			}
 			return
@@ -4180,7 +4190,7 @@ func isNotNil(n *node) {
 				if vi, ok := v.Interface().(valueInterface); ok {
 					r = (vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT)
 				} else {
-					r = v.IsNil()
+					r = rconvToNil(v)
 				}
 				dest(f).Set(reflect.ValueOf(!r).Convert(typ))
 				return tnext
@@ -4193,7 +4203,7 @@ func isNotNil(n *node) {
 			if vi, ok := v.Interface().(valueInterface); ok {
 				r = (vi == valueInterface{} || vi.node.kind == basicLit && vi.node.typ.cat == nilT)
 			} else {
-				r = v.IsNil()
+				r = rconvToNil(v)
 			}
 			dest(f).SetBool(!r)
 			return tnext
@@ -4203,9 +4213,10 @@ func isNotNil(n *node) {
 
 	fnext := getExec(n.fnext)
 
-	if isInterfaceSrc(c0.typ) {
+	if isInterfaceSrc(c.typ) {
 		n.exec = func(f *frame) bltn {
-			if value(f).IsNil() {
+			v := value(f)
+			if rconvToNil(v) {
 				dest(f).SetBool(false)
 				return fnext
 			}
@@ -4225,7 +4236,7 @@ func isNotNil(n *node) {
 			dest(f).SetBool(true)
 			return tnext
 		}
-		if v.IsNil() {
+		if rconvToNil(v) {
 			dest(f).SetBool(false)
 			return fnext
 		}

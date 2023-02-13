@@ -328,6 +328,12 @@ func rconvNumber(value reflect.Value) reflect.Value {
 				return reflect.ValueOf(num)
 			}
 		}
+	} else if isBoolean(value.Type()) {
+		if value.Bool() {
+			return reflect.ValueOf(1)
+		} else {
+			return reflect.ValueOf(0)
+		}
 	} else {
 		return value
 	}
@@ -433,6 +439,60 @@ func rconvToBool(val reflect.Value) bool {
 		return false
 	}
 	return cast.ToBool(val.Interface())
+}
+
+func rconvToInt(val reflect.Value) int {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToInt(val.Interface())
+}
+
+func rconvToUint(val reflect.Value) uint {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToUint(val.Interface())
+}
+
+func rconvToInt64(val reflect.Value) int64 {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToInt64(val.Interface())
+}
+
+func rconvToUint64(val reflect.Value) uint64 {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToUint64(val.Interface())
+}
+
+func rconvToFloat32(val reflect.Value) float32 {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToFloat32(val.Interface())
+}
+
+func rconvToFloat64(val reflect.Value) float64 {
+	if !val.IsValid() {
+		return 0
+	}
+	return cast.ToFloat64(val.Interface())
+}
+
+func rconvToNil(v reflect.Value) bool {
+	if isNullable(v.Type()) {
+		return v.IsNil() || v.Kind() == reflect.Interface && v.Elem().IsZero()
+	} else {
+		if v.IsZero() {
+			return true
+		} else {
+			return false
+		}
+	}
 }
 
 func compare(val0, val1 interface{}, op string) (value bool, err error) {
